@@ -89,3 +89,17 @@ export interface Subject {
   description?: string;
   applicableLevel: EducationLevel[];
 }
+
+// Exam Types
+export interface Exam {
+  id: string;
+  title: string;
+  subject: string;
+  educationLevel: EducationLevel;
+  date: string;
+  duration: number;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  totalMarks: number;
+  passingScore: number;
+  description?: string;
+}
