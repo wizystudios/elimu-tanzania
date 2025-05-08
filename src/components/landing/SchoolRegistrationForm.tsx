@@ -10,11 +10,13 @@ import {
   FormField, 
   FormItem, 
   FormLabel, 
-  FormMessage 
+  FormMessage,
+  FormDescription 
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { 
+import { Textarea } from '@/components/ui/textarea'; 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,32 +25,49 @@ import {
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { SchoolType } from '@/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const formSchema = z.object({
+  // Basic Information
   name: z.string().min(3, {
-    message: "School name must be at least 3 characters.",
+    message: "Jina la shule lazima liwe na herufi 3 au zaidi.",
   }),
   registrationNumber: z.string().min(5, {
-    message: "Registration number must be at least 5 characters.",
+    message: "Namba ya usajili lazima iwe na herufi 5 au zaidi.",
   }),
   email: z.string().email({
-    message: "Please enter a valid email address.",
+    message: "Tafadhali ingiza anwani halali ya barua pepe.",
   }),
   phone: z.string().min(10, {
-    message: "Phone number must be at least 10 digits.",
+    message: "Namba ya simu lazima iwe na tarakimu 10 au zaidi.",
   }),
   type: z.enum(['kindergarten', 'primary', 'secondary', 'advanced'] as const),
+  
+  // Location Details
   region: z.string().min(2, {
-    message: "Region is required.",
+    message: "Mkoa unahitajika.",
   }),
   district: z.string().min(2, {
-    message: "District is required.",
+    message: "Wilaya inahitajika.",
   }),
   ward: z.string().min(2, {
-    message: "Ward is required.",
+    message: "Kata inahitajika.",
   }),
   street: z.string().min(2, {
-    message: "Street address is required.",
+    message: "Anwani ya mtaa inahitajika.",
+  }),
+  
+  // Additional Details
+  establishedDate: z.string().optional(),
+  description: z.string().optional(),
+  headmasterName: z.string().min(3, {
+    message: "Jina la mkuu wa shule linahitajika."
+  }),
+  headmasterPhone: z.string().min(10, {
+    message: "Namba ya simu ya mkuu wa shule lazima iwe na tarakimu 10 au zaidi."
+  }),
+  headmasterEmail: z.string().email({
+    message: "Tafadhali ingiza anwani halali ya barua pepe ya mkuu wa shule."
   }),
 });
 
@@ -67,6 +86,11 @@ const SchoolRegistrationForm: React.FC = () => {
       district: "",
       ward: "",
       street: "",
+      establishedDate: "",
+      description: "",
+      headmasterName: "",
+      headmasterPhone: "",
+      headmasterEmail: "",
     },
   });
 
@@ -74,65 +98,44 @@ const SchoolRegistrationForm: React.FC = () => {
     console.log('Form submitted:', data);
     
     // Mock successful registration - in a real app, this would be an API call
-    toast.success("School registration successful!", {
-      description: `${data.name} has been registered. Your school portal will be available soon at ${data.name.toLowerCase().replace(/\s+/g, '')}.tunzatech.com`,
+    const subdomain = data.name.toLowerCase().replace(/\s+/g, '');
+    toast.success("Usajili wa shule umefanikiwa!", {
+      description: `${data.name} imesajiliwa. Tovuti ya shule yako itakuwa inapatikana hivi karibuni kwenye ${subdomain}.tunzatech.com`,
     });
     
     form.reset();
   };
 
-  const schoolTypes: {value: SchoolType; label: string}[] = [
-    { value: 'kindergarten', label: 'Kindergarten (Chekechea)' },
-    { value: 'primary', label: 'Primary School (Shule ya Msingi)' },
-    { value: 'secondary', label: 'Secondary School (O-Level)' },
-    { value: 'advanced', label: 'Advanced Level (A-Level)' },
+  const schoolTypes: {value: SchoolType; label: string; swahiliLabel: string}[] = [
+    { value: 'kindergarten', label: 'Kindergarten', swahiliLabel: 'Chekechea' },
+    { value: 'primary', label: 'Primary School', swahiliLabel: 'Shule ya Msingi' },
+    { value: 'secondary', label: 'Secondary School', swahiliLabel: 'Sekondari O-Level' },
+    { value: 'advanced', label: 'Advanced Level', swahiliLabel: 'Sekondari A-Level' },
   ];
 
   return (
     <Card className="p-6">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* School Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold">Basic Information</h3>
+      <Tabs defaultValue="basic">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="basic">Taarifa za Msingi</TabsTrigger>
+          <TabsTrigger value="location">Mahali</TabsTrigger>
+          <TabsTrigger value="additional">Taarifa za Ziada</TabsTrigger>
+        </TabsList>
+        
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>School Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter school name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="registrationNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Registration Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="School registration number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TabsContent value="basic" className="space-y-4">
+              <h3 className="text-xl font-bold">Taarifa za Msingi za Shule</h3>
+              
               <FormField
                 control={form.control}
-                name="email"
+                name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Jina la Shule</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="school@example.com" {...field} />
+                      <Input placeholder="Ingiza jina la shule" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -141,62 +144,159 @@ const SchoolRegistrationForm: React.FC = () => {
               
               <FormField
                 control={form.control}
-                name="phone"
+                name="registrationNumber"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone Number</FormLabel>
+                    <FormLabel>Namba ya Usajili</FormLabel>
                     <FormControl>
-                      <Input placeholder="+255 xxx xxx xxx" {...field} />
+                      <Input placeholder="Namba ya usajili wa shule" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>School Type</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select school type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {schoolTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          {/* School Location */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold">Location Details</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Barua pepe</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="school@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Namba ya Simu</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+255 xxx xxx xxx" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
               <FormField
                 control={form.control}
-                name="region"
+                name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Region</FormLabel>
+                    <FormLabel>Aina ya Shule</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chagua aina ya shule" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {schoolTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label} ({type.swahiliLabel})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Aina ya shule itaamua moduli na vipengele vitakavyopatikana kwenye mfumo wako.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </TabsContent>
+            
+            <TabsContent value="location" className="space-y-4">
+              <h3 className="text-xl font-bold">Taarifa za Mahali pa Shule</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mkoa</FormLabel>
+                      <FormControl>
+                        <Input placeholder="mfano., Dar es Salaam" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="district"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Wilaya</FormLabel>
+                      <FormControl>
+                        <Input placeholder="mfano., Kinondoni" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="ward"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Kata</FormLabel>
+                      <FormControl>
+                        <Input placeholder="mfano., Msasani" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="street"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mtaa</FormLabel>
+                      <FormControl>
+                        <Input placeholder="mfano., Barabara ya Mbezi Beach" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="additional" className="space-y-4">
+              <h3 className="text-xl font-bold">Taarifa za Ziada</h3>
+              
+              <FormField
+                control={form.control}
+                name="establishedDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tarehe ya Kuanzishwa</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Dar es Salaam" {...field} />
+                      <Input type="date" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      Tarehe ambayo shule ilianzishwa rasmi.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -204,59 +304,82 @@ const SchoolRegistrationForm: React.FC = () => {
               
               <FormField
                 control={form.control}
-                name="district"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>District</FormLabel>
+                    <FormLabel>Maelezo ya Shule</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Kinondoni" {...field} />
+                      <Textarea placeholder="Toa maelezo mafupi kuhusu shule yako..." {...field} />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="ward"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ward</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Msasani" {...field} />
-                    </FormControl>
+                    <FormDescription>
+                      Historia fupi, dhamira, na maono ya shule yako.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <FormField
-                control={form.control}
-                name="street"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Street</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Mbezi Beach Road" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-4 border-t pt-4 mt-4">
+                <h4 className="text-lg font-semibold">Taarifa za Mkuu wa Shule</h4>
+                
+                <FormField
+                  control={form.control}
+                  name="headmasterName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jina la Mkuu wa Shule</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jina kamili la mkuu wa shule" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="headmasterPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Namba ya Simu</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+255 xxx xxx xxx" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="headmasterEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Barua Pepe</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="headmaster@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            
+            <div className="pt-4 border-t">
+              <Button type="submit" className="w-full">
+                Sajili Shule
+              </Button>
+              
+              <p className="text-sm text-gray-500 text-center mt-4">
+                Kwa kusajili, unakubali Masharti yetu ya Huduma na Sera ya Faragha.
+              </p>
             </div>
-          </div>
-          
-          <Button type="submit" className="w-full">
-            Register School
-          </Button>
-          
-          <p className="text-sm text-gray-500 text-center">
-            By registering, you agree to our Terms of Service and Privacy Policy.
-          </p>
-        </form>
-      </Form>
+          </form>
+        </Form>
+      </Tabs>
     </Card>
   );
 };

@@ -20,10 +20,26 @@ export interface School {
   logo?: string;
   establishedDate: string;
   registrationNumber: string;
+  subdomain?: string;
+  headmaster?: {
+    name: string;
+    email: string;
+    phone: string;
+  };
 }
 
 // User Types
 export type UserRole = 'super_admin' | 'admin' | 'teacher' | 'student' | 'parent';
+
+// Teacher Specific Roles
+export type TeacherRole = 
+  'normal_teacher' | 
+  'headmaster' | 
+  'vice_headmaster' | 
+  'academic_teacher' | 
+  'discipline_teacher' | 
+  'sports_teacher' | 
+  'environment_teacher';
 
 export interface User {
   id: string;
@@ -36,10 +52,22 @@ export interface User {
   phoneNumber?: string;
   isActive: boolean;
   createdAt: string;
+  // Teacher specific properties
+  teacherRole?: TeacherRole;
+  subjects?: string[];
+  classes?: string[];
 }
 
 // Student Types
-export type EducationLevel = 'chekechea' | 'darasa1' | 'darasa2' | 'darasa3' | 'darasa4' | 'darasa5' | 'darasa6' | 'darasa7' | 'form1' | 'form2' | 'form3' | 'form4' | 'form5' | 'form6';
+export type EducationLevel = 
+  // Kindergarten
+  'chekechea' | 
+  // Primary
+  'darasa1' | 'darasa2' | 'darasa3' | 'darasa4' | 'darasa5' | 'darasa6' | 'darasa7' | 
+  // Secondary O-Level
+  'form1' | 'form2' | 'form3' | 'form4' | 
+  // Secondary A-Level
+  'form5' | 'form6';
 
 export interface Student {
   id: string;
@@ -62,6 +90,7 @@ export interface Teacher {
   id: string;
   userId: string;
   staffId: string;
+  teacherRole: TeacherRole;
   subjects: string[];
   classesAssigned: string[];
   qualifications: string[];
@@ -102,4 +131,40 @@ export interface Exam {
   totalMarks: number;
   passingScore: number;
   description?: string;
+}
+
+// Assignment Types
+export interface Assignment {
+  id: string;
+  title: string;
+  description: string;
+  subjectId: string;
+  classId: string;
+  teacherId: string;
+  dueDate: string;
+  createdAt: string;
+  totalMarks: number;
+  attachments?: string[];
+}
+
+// Attendance Types
+export interface Attendance {
+  id: string;
+  studentId: string;
+  classId: string;
+  date: string;
+  status: 'present' | 'absent' | 'late' | 'excused';
+  notes?: string;
+}
+
+// School Calendar Types
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  type: 'exam' | 'holiday' | 'meeting' | 'event' | 'other';
+  schoolId: string;
+  classIds?: string[];
 }
