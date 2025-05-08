@@ -1,5 +1,4 @@
-
-import { School, User, Student, Teacher, Class, Subject } from '../types';
+import { School, User, Student, Teacher, Class, Subject, TeacherRole } from '../types';
 
 // Mock Schools
 export const schools: School[] = [
@@ -200,6 +199,7 @@ export const teachers: Teacher[] = [
     id: '1',
     userId: '3',
     staffId: 'TCH/2023/001',
+    teacherRole: 'normal_teacher',
     subjects: ['Mathematics', 'Science'],
     classesAssigned: ['Class 4A', 'Class 4B'],
     qualifications: ['B.Ed in Education', 'Diploma in Mathematics'],
@@ -211,6 +211,7 @@ export const teachers: Teacher[] = [
     id: '2',
     userId: '4',
     staffId: 'TCH/2023/002',
+    teacherRole: 'normal_teacher',
     subjects: ['Biology', 'Chemistry'],
     classesAssigned: ['Form 1A', 'Form 2B'],
     qualifications: ['B.Sc in Biology', 'M.Ed in Education'],
