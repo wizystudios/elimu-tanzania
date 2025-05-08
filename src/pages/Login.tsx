@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserRole } from '@/types';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 const formSchema = z.object({
   school: z.string().min(2, {
@@ -52,7 +53,7 @@ const Login = () => {
       return;
     }
     
-    // Mock school check - in a real app, this would be an API call
+    // In a real app, this would be an API call
     setTimeout(() => {
       setIsSchoolFound(true);
       toast.success(`Shule imepatikana: ${schoolName}`);
@@ -62,7 +63,7 @@ const Login = () => {
   const onSubmit = (data: z.infer<typeof formSchema>) => {
     console.log(data);
     
-    // Mock login - in a real app, this would be an API call
+    // In a real app, this would be an API call
     toast.success("Umeingia kwa mafanikio!", {
       description: `Karibu kwenye akaunti yako ya ${getRoleLabel(data.role as UserRole)}.`,
     });
@@ -79,13 +80,17 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <Card className="w-full max-w-md dark:bg-gray-800 border dark:border-gray-700">
         <CardHeader className="pb-6 text-center">
-          <CardTitle className="text-2xl font-bold text-tanzanian-blue">
-            Elimu Tanzania
-          </CardTitle>
-          <CardDescription>
+          <div className="flex justify-between items-center">
+            <div></div>
+            <CardTitle className="text-2xl font-bold text-tanzanian-blue dark:text-blue-400">
+              Elimu Tanzania
+            </CardTitle>
+            <ThemeToggle />
+          </div>
+          <CardDescription className="dark:text-gray-400">
             Ingia kwenye mfumo wa usimamizi wa shule
           </CardDescription>
         </CardHeader>
@@ -100,13 +105,13 @@ const Login = () => {
                     name="school"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Jina la Shule</FormLabel>
+                        <FormLabel className="dark:text-gray-200">Jina la Shule</FormLabel>
                         <div className="flex gap-2">
                           <FormControl>
                             <Input 
                               placeholder="Ingiza jina la shule yako" 
                               {...field} 
-                              className="flex-grow"
+                              className="flex-grow dark:bg-gray-700 dark:border-gray-600"
                             />
                           </FormControl>
                           <Button type="button" onClick={checkSchool}>Tafuta</Button>
@@ -115,7 +120,7 @@ const Login = () => {
                       </FormItem>
                     )}
                   />
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                     Ingiza jina la shule yako ili kuanza.
                   </p>
                 </>
@@ -126,7 +131,7 @@ const Login = () => {
                     name="role"
                     render={({ field }) => (
                       <FormItem className="space-y-3">
-                        <FormLabel>Jukumu Lako</FormLabel>
+                        <FormLabel className="dark:text-gray-200">Jukumu Lako</FormLabel>
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
@@ -137,25 +142,25 @@ const Login = () => {
                               <FormControl>
                                 <RadioGroupItem value="admin" />
                               </FormControl>
-                              <FormLabel className="font-normal">Msimamizi</FormLabel>
+                              <FormLabel className="font-normal dark:text-gray-300">Msimamizi</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl>
                                 <RadioGroupItem value="teacher" />
                               </FormControl>
-                              <FormLabel className="font-normal">Mwalimu</FormLabel>
+                              <FormLabel className="font-normal dark:text-gray-300">Mwalimu</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl>
                                 <RadioGroupItem value="student" />
                               </FormControl>
-                              <FormLabel className="font-normal">Mwanafunzi</FormLabel>
+                              <FormLabel className="font-normal dark:text-gray-300">Mwanafunzi</FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl>
                                 <RadioGroupItem value="parent" />
                               </FormControl>
-                              <FormLabel className="font-normal">Mzazi</FormLabel>
+                              <FormLabel className="font-normal dark:text-gray-300">Mzazi</FormLabel>
                             </FormItem>
                           </RadioGroup>
                         </FormControl>
@@ -169,9 +174,9 @@ const Login = () => {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Barua Pepe</FormLabel>
+                        <FormLabel className="dark:text-gray-200">Barua Pepe</FormLabel>
                         <FormControl>
-                          <Input placeholder="barua@mfano.com" {...field} />
+                          <Input placeholder="barua@mfano.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -183,9 +188,9 @@ const Login = () => {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nenosiri</FormLabel>
+                        <FormLabel className="dark:text-gray-200">Nenosiri</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="••••••••" {...field} />
+                          <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -197,7 +202,7 @@ const Login = () => {
                   <div className="text-center text-sm">
                     <button 
                       type="button" 
-                      className="text-tanzanian-blue hover:underline"
+                      className="text-tanzanian-blue dark:text-blue-400 hover:underline"
                       onClick={() => setIsSchoolFound(false)}
                     >
                       Badilisha shule
@@ -210,14 +215,18 @@ const Login = () => {
         </CardContent>
         
         <CardFooter className="flex flex-col space-y-2">
-          <p className="text-sm text-center text-gray-500">
-            Huna akaunti? Wasiliana na msimamizi wa shule yako.
+          <p className="text-sm text-center text-gray-500 dark:text-gray-400">
+            Huna akaunti? Wasiliana na msimamizi wa shule yako au
           </p>
-          <p className="text-sm text-center">
-            <Link to="/" className="text-tanzanian-blue hover:underline">
+          <div className="flex gap-2 justify-center">
+            <Link to="/register" className="text-tanzanian-blue dark:text-blue-400 hover:underline">
+              Sajili shule mpya
+            </Link>
+            <span className="text-gray-500 dark:text-gray-400">•</span>
+            <Link to="/" className="text-tanzanian-blue dark:text-blue-400 hover:underline">
               Rudi kwenye ukurasa wa mwanzo
             </Link>
-          </p>
+          </div>
         </CardFooter>
       </Card>
     </div>
