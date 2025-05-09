@@ -17,9 +17,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-screen flex flex-col items-center justify-center bg-background text-foreground">
         <Spinner className="w-8 h-8" />
-        <span className="ml-2 text-lg">Inapakia...</span>
+        <span className="ml-2 text-lg mt-3">Inapakia...</span>
       </div>
     );
   }
