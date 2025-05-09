@@ -15,8 +15,59 @@ import Teachers from "./pages/Teachers";
 import Parents from "./pages/Parents";
 import Exams from "./pages/Exams";
 import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
+
+const AppWithProviders = () => (
+  <BrowserRouter>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        
+        {/* Protected Routes */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/schools" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+            <Schools />
+          </ProtectedRoute>
+        } />
+        <Route path="/students" element={
+          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+            <Students />
+          </ProtectedRoute>
+        } />
+        <Route path="/teachers" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Teachers />
+          </ProtectedRoute>
+        } />
+        <Route path="/parents" element={
+          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+            <Parents />
+          </ProtectedRoute>
+        } />
+        <Route path="/exams" element={
+          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+            <Exams />
+          </ProtectedRoute>
+        } />
+        
+        {/* Catch-All Route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
+  </BrowserRouter>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -24,21 +75,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/schools" element={<Schools />} />
-            <Route path="/students" element={<Students />} />
-            <Route path="/teachers" element={<Teachers />} />
-            <Route path="/parents" element={<Parents />} />
-            <Route path="/exams" element={<Exams />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <AppWithProviders />
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>

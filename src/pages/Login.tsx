@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { UserRole } from '@/types';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
+import { supabase } from '@/integrations/supabase/client';
 
 const formSchema = z.object({
   school: z.string().min(2, {
@@ -35,6 +36,8 @@ const formSchema = z.object({
 
 const Login = () => {
   const [isSchoolFound, setIsSchoolFound] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,27 +49,96 @@ const Login = () => {
     },
   });
   
-  const checkSchool = () => {
+  const checkSchool = async () => {
     const schoolName = form.getValues("school");
     if (schoolName.length < 2) {
       toast.error("Tafadhali ingiza jina sahihi la shule");
       return;
     }
     
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setIsSchoolFound(true);
-      toast.success(`Shule imepatikana: ${schoolName}`);
-    }, 1000);
+    setIsLoading(true);
+    
+    try {
+      // Check if school exists in database
+      const { data, error } = await supabase
+        .from('schools')
+        .select('id, name')
+        .ilike('name', `%${schoolName}%`)
+        .limit(1)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          toast.error("Shule haijapatikana, tafadhali jaribu tena au sajili shule yako");
+        } else {
+          toast.error("Hitilafu imetokea wakati wa kutafuta shule");
+          console.error("Error checking school:", error);
+        }
+        return;
+      }
+      
+      if (data) {
+        setIsSchoolFound(true);
+        toast.success(`Shule imepatikana: ${data.name}`);
+      }
+    } catch (error) {
+      console.error("Error checking school:", error);
+      toast.error("Hitilafu imetokea wakati wa kutafuta shule");
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    console.log(data);
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    setIsLoading(true);
     
-    // In a real app, this would be an API call
-    toast.success("Umeingia kwa mafanikio!", {
-      description: `Karibu kwenye akaunti yako ya ${getRoleLabel(data.role as UserRole)}.`,
-    });
+    try {
+      // Sign in with Supabase
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password
+      });
+      
+      if (error) {
+        toast.error("Kushindwa kuingia: " + error.message);
+        return;
+      }
+      
+      // Check if user has the selected role
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', authData.user.id)
+        .eq('role', data.role)
+        .maybeSingle();
+      
+      if (roleError) {
+        console.error("Error checking role:", roleError);
+        toast.error("Hitilafu imetokea wakati wa kuthibitisha jukumu lako");
+        return;
+      }
+      
+      if (!roleData) {
+        toast.error(`Huna jukumu la ${getRoleLabel(data.role as UserRole)} katika mfumo.`);
+        // Sign out since role doesn't match
+        await supabase.auth.signOut();
+        return;
+      }
+      
+      // Successful login
+      toast.success("Umeingia kwa mafanikio!", {
+        description: `Karibu kwenye akaunti yako ya ${getRoleLabel(data.role as UserRole)}.`,
+      });
+      
+      // Redirect based on role
+      navigate('/dashboard');
+      
+    } catch (err) {
+      console.error("Login error:", err);
+      toast.error("Hitilafu imetokea wakati wa kuingia");
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const getRoleLabel = (role: UserRole) => {
@@ -112,9 +184,16 @@ const Login = () => {
                               placeholder="Ingiza jina la shule yako" 
                               {...field} 
                               className="flex-grow dark:bg-gray-700 dark:border-gray-600"
+                              disabled={isLoading}
                             />
                           </FormControl>
-                          <Button type="button" onClick={checkSchool}>Tafuta</Button>
+                          <Button 
+                            type="button" 
+                            onClick={checkSchool}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? "Inatafuta..." : "Tafuta"}
+                          </Button>
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -137,6 +216,7 @@ const Login = () => {
                             onValueChange={field.onChange}
                             defaultValue={field.value}
                             className="flex flex-wrap gap-4"
+                            disabled={isLoading}
                           >
                             <FormItem className="flex items-center space-x-2 space-y-0">
                               <FormControl>
@@ -176,7 +256,12 @@ const Login = () => {
                       <FormItem>
                         <FormLabel className="dark:text-gray-200">Barua Pepe</FormLabel>
                         <FormControl>
-                          <Input placeholder="barua@mfano.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                          <Input 
+                            placeholder="barua@mfano.com" 
+                            {...field} 
+                            className="dark:bg-gray-700 dark:border-gray-600"
+                            disabled={isLoading} 
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -190,20 +275,33 @@ const Login = () => {
                       <FormItem>
                         <FormLabel className="dark:text-gray-200">Nenosiri</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                          <Input 
+                            type="password" 
+                            placeholder="••••••••" 
+                            {...field} 
+                            className="dark:bg-gray-700 dark:border-gray-600"
+                            disabled={isLoading}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   
-                  <Button type="submit" className="w-full">Ingia</Button>
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Inaingia..." : "Ingia"}
+                  </Button>
                   
                   <div className="text-center text-sm">
                     <button 
                       type="button" 
                       className="text-tanzanian-blue dark:text-blue-400 hover:underline"
                       onClick={() => setIsSchoolFound(false)}
+                      disabled={isLoading}
                     >
                       Badilisha shule
                     </button>

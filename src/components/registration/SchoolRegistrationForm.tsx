@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +27,8 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { SchoolType } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { Spinner } from '@/components/ui/spinner';
 
 // List of Tanzanian regions
 const tanzanianRegions = [
@@ -84,11 +87,33 @@ const formSchema = z.object({
   headmasterEmail: z.string().email({
     message: "Tafadhali ingiza anwani halali ya barua pepe ya mkuu wa shule."
   }),
+  
+  // Admin Account
+  adminFirstName: z.string().min(2, {
+    message: "Jina la kwanza la msimamizi linahitajika."
+  }),
+  adminLastName: z.string().min(2, {
+    message: "Jina la mwisho la msimamizi linahitajika."
+  }),
+  adminEmail: z.string().email({
+    message: "Tafadhali ingiza anwani halali ya barua pepe ya msimamizi."
+  }),
+  adminPassword: z.string().min(8, {
+    message: "Nenosiri lazima liwe na angalau herufi 8."
+  }),
+  adminConfirmPassword: z.string(),
+}).refine((data) => data.adminPassword === data.adminConfirmPassword, {
+  message: "Nenosiri hazifanani",
+  path: ["adminConfirmPassword"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 const SchoolRegistrationForm: React.FC = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'basic' | 'location' | 'additional' | 'admin'>('basic');
+  const navigate = useNavigate();
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -107,19 +132,115 @@ const SchoolRegistrationForm: React.FC = () => {
       headmasterName: "",
       headmasterPhone: "",
       headmasterEmail: "",
+      adminFirstName: "",
+      adminLastName: "",
+      adminEmail: "",
+      adminPassword: "",
+      adminConfirmPassword: ""
     },
   });
 
-  const onSubmit = (data: FormValues) => {
-    console.log('Form submitted:', data);
+  const onSubmit = async (data: FormValues) => {
+    setIsSubmitting(true);
     
-    // In a real application, this would be an API call
-    const subdomain = data.name.toLowerCase().replace(/\s+/g, '');
-    toast.success("Usajili wa shule umefanikiwa!", {
-      description: `${data.name} imesajiliwa. Tovuti ya shule yako itakuwa inapatikana hivi karibuni kwenye ${subdomain}.elimutanzania.co.tz`,
-    });
-    
-    form.reset();
+    try {
+      // Create subdomain from school name
+      const subdomain = data.name.toLowerCase().replace(/\s+/g, '');
+      
+      // 1. First, create the school record
+      const { data: schoolData, error: schoolError } = await supabase
+        .from('schools')
+        .insert({
+          name: data.name,
+          registration_number: data.registrationNumber,
+          email: data.email,
+          phone: data.phone,
+          type: data.type,
+          subdomain: subdomain,
+          established_date: data.establishedDate || null,
+          description: data.description || null
+        })
+        .select()
+        .single();
+      
+      if (schoolError) {
+        throw new Error(`School creation failed: ${schoolError.message}`);
+      }
+      
+      // 2. Create location for the school
+      const { error: locationError } = await supabase
+        .from('school_locations')
+        .insert({
+          school_id: schoolData.id,
+          region: data.region,
+          district: data.district,
+          ward: data.ward,
+          street: data.street
+        });
+      
+      if (locationError) {
+        throw new Error(`Location creation failed: ${locationError.message}`);
+      }
+      
+      // 3. Add headmaster information
+      const { error: adminError } = await supabase
+        .from('school_administrators')
+        .insert({
+          school_id: schoolData.id,
+          name: data.headmasterName,
+          email: data.headmasterEmail,
+          phone: data.headmasterPhone
+        });
+      
+      if (adminError) {
+        throw new Error(`Administrator creation failed: ${adminError.message}`);
+      }
+      
+      // 4. Create admin user account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.adminEmail,
+        password: data.adminPassword,
+        options: {
+          data: {
+            first_name: data.adminFirstName,
+            last_name: data.adminLastName,
+          },
+        }
+      });
+      
+      if (authError) {
+        throw new Error(`User creation failed: ${authError.message}`);
+      }
+      
+      // 5. Assign admin role to the new user
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: authData.user!.id,
+          school_id: schoolData.id,
+          role: 'admin'
+        });
+      
+      if (roleError) {
+        throw new Error(`Role assignment failed: ${roleError.message}`);
+      }
+      
+      // Success!
+      toast.success("Usajili wa shule umefanikiwa!", {
+        description: `${data.name} imesajiliwa. Tovuti ya shule yako itakuwa inapatikana hivi karibuni kwenye ${subdomain}.elimutanzania.co.tz`,
+      });
+      
+      // Redirect to login
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast.error("Hitilafu kwenye usajili: " + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const watchRegion = form.watch('region');
@@ -130,14 +251,55 @@ const SchoolRegistrationForm: React.FC = () => {
     { value: 'secondary', label: 'Secondary School', swahiliLabel: 'Sekondari O-Level' },
     { value: 'advanced', label: 'Advanced Level', swahiliLabel: 'Sekondari A-Level' },
   ];
+  
+  const goToNextStep = () => {
+    if (currentStep === 'basic') {
+      const basicFields = ['name', 'registrationNumber', 'email', 'phone', 'type'];
+      const valid = basicFields.every(field => 
+        !form.getFieldState(field as any).invalid && form.getValues(field as any)
+      );
+      
+      if (valid) {
+        setCurrentStep('location');
+        return;
+      }
+      // Trigger validation for fields
+      basicFields.forEach(field => form.trigger(field as any));
+    } 
+    else if (currentStep === 'location') {
+      const locationFields = ['region', 'district', 'ward', 'street'];
+      const valid = locationFields.every(field => 
+        !form.getFieldState(field as any).invalid && form.getValues(field as any)
+      );
+      
+      if (valid) {
+        setCurrentStep('additional');
+        return;
+      }
+      locationFields.forEach(field => form.trigger(field as any));
+    }
+    else if (currentStep === 'additional') {
+      const additionalFields = ['headmasterName', 'headmasterPhone', 'headmasterEmail'];
+      const valid = additionalFields.every(field => 
+        !form.getFieldState(field as any).invalid && form.getValues(field as any)
+      );
+      
+      if (valid) {
+        setCurrentStep('admin');
+        return;
+      }
+      additionalFields.forEach(field => form.trigger(field as any));
+    }
+  };
 
   return (
     <Card className="p-6 shadow-lg dark:bg-gray-800 border dark:border-gray-700">
-      <Tabs defaultValue="basic">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
-          <TabsTrigger value="basic">Taarifa za Msingi</TabsTrigger>
+      <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as any)}>
+        <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsTrigger value="basic">Msingi</TabsTrigger>
           <TabsTrigger value="location">Mahali</TabsTrigger>
-          <TabsTrigger value="additional">Taarifa za Ziada</TabsTrigger>
+          <TabsTrigger value="additional">Ziada</TabsTrigger>
+          <TabsTrigger value="admin">Msimamizi</TabsTrigger>
         </TabsList>
         
         <Form {...form}>
@@ -234,6 +396,10 @@ const SchoolRegistrationForm: React.FC = () => {
                   </FormItem>
                 )}
               />
+              
+              <div className="pt-4">
+                <Button type="button" onClick={goToNextStep}>Endelea</Button>
+              </div>
             </TabsContent>
             
             <TabsContent value="location" className="space-y-4">
@@ -359,6 +525,10 @@ const SchoolRegistrationForm: React.FC = () => {
                   )}
                 />
               </div>
+              
+              <div className="pt-4">
+                <Button type="button" onClick={goToNextStep}>Endelea</Button>
+              </div>
             </TabsContent>
             
             <TabsContent value="additional" className="space-y-4">
@@ -445,17 +615,109 @@ const SchoolRegistrationForm: React.FC = () => {
                   />
                 </div>
               </div>
+              
+              <div className="pt-4">
+                <Button type="button" onClick={goToNextStep}>Endelea</Button>
+              </div>
             </TabsContent>
             
-            <div className="pt-4 border-t dark:border-gray-700">
-              <Button type="submit" className="w-full">
-                Sajili Shule
-              </Button>
-              
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
-                Kwa kusajili, unakubali Masharti yetu ya Huduma na Sera ya Faragha.
+            <TabsContent value="admin" className="space-y-4">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Msimamizi wa Mfumo</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Tengeneza akaunti ya msimamizi (admin) ya kutumia kuingia kwenye mfumo.
               </p>
-            </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="adminFirstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jina la Kwanza</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jina la kwanza" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="adminLastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jina la Mwisho</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jina la mwisho" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="adminEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Barua Pepe</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="admin@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="adminPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nenosiri</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="adminConfirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Thibitisha Nenosiri</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="pt-4 border-t dark:border-gray-700">
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Spinner className="mr-2 h-4 w-4" />
+                      Inasajili...
+                    </>
+                  ) : (
+                    "Sajili Shule"
+                  )}
+                </Button>
+                
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                  Kwa kusajili, unakubali Masharti yetu ya Huduma na Sera ya Faragha.
+                </p>
+              </div>
+            </TabsContent>
           </form>
         </Form>
       </Tabs>

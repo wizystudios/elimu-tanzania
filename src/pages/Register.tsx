@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import SchoolRegistrationForm from '@/components/registration/SchoolRegistrationForm';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 const Register = () => {
   return (
@@ -12,9 +13,12 @@ const Register = () => {
           <Link to="/" className="text-tanzanian-blue dark:text-tanzanian-blue hover:opacity-80 flex items-center gap-2">
             <span className="text-2xl font-bold">Elimu Tanzania</span>
           </Link>
-          <Link to="/login">
-            <Button variant="outline">Ingia</Button>
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/login">
+              <Button variant="outline">Ingia</Button>
+            </Link>
+            <ThemeToggle />
+          </div>
         </div>
         
         <div className="max-w-4xl mx-auto">
