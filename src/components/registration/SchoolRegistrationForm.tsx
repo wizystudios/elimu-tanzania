@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -28,6 +29,8 @@ import { SchoolType } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 
 // List of Tanzanian regions
 const tanzanianRegions = [
@@ -38,10 +41,17 @@ const tanzanianRegions = [
   'Zanzibar Central/South', 'Zanzibar North', 'Zanzibar Urban/West'
 ];
 
-// Sample districts for Dar es Salaam (would be dynamically loaded in a real app)
-const darEsSalaamDistricts = [
-  'Ilala', 'Kinondoni', 'Temeke', 'Ubungo', 'Kigamboni'
-];
+// Districts by region
+const districtsByRegion = {
+  'Dar es Salaam': ['Ilala', 'Kinondoni', 'Temeke', 'Ubungo', 'Kigamboni'],
+  'Arusha': ['Arusha DC', 'Arusha MC', 'Karatu', 'Longido', 'Meru', 'Monduli', 'Ngorongoro'],
+  'Dodoma': ['Bahi', 'Chamwino', 'Chemba', 'Dodoma MC', 'Kondoa', 'Kongwa', 'Mpwapwa'],
+  'Kilimanjaro': ['Hai', 'Moshi DC', 'Moshi MC', 'Mwanga', 'Rombo', 'Same', 'Siha'],
+  'Mwanza': ['Ilemela', 'Kwimba', 'Magu', 'Misungwi', 'Nyamagana', 'Sengerema', 'Ukerewe'],
+  // Add more regions and districts as needed
+  // Default for other regions
+  'default': ['Wilaya 1', 'Wilaya 2', 'Wilaya 3', 'Wilaya Nyingine']
+};
 
 const formSchema = z.object({
   // Basic Information
@@ -111,6 +121,8 @@ type FormValues = z.infer<typeof formSchema>;
 const SchoolRegistrationForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState<'basic' | 'location' | 'additional' | 'admin'>('basic');
+  const [availableDistricts, setAvailableDistricts] = useState<string[]>([]);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
   const navigate = useNavigate();
   
   const form = useForm<FormValues>({
@@ -139,15 +151,28 @@ const SchoolRegistrationForm: React.FC = () => {
     },
   });
 
+  const watchRegion = form.watch('region');
+  
+  // Update available districts when region changes
+  useEffect(() => {
+    if (watchRegion) {
+      setAvailableDistricts(districtsByRegion[watchRegion as keyof typeof districtsByRegion] || districtsByRegion.default);
+      // Reset district if region changes
+      form.setValue('district', '');
+    }
+  }, [watchRegion, form]);
+
   const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
+    setRegistrationError(null);
     
     try {
       console.log("Starting school registration process...");
       // Create subdomain from school name
       const subdomain = data.name.toLowerCase().replace(/\s+/g, '');
       
-      // 1. First, create the school record
+      // 1. First, create the school record with public access
+      console.log("Attempting to insert school record as public...");
       const { data: schoolData, error: schoolError } = await supabase
         .from('schools')
         .insert({
@@ -176,6 +201,7 @@ const SchoolRegistrationForm: React.FC = () => {
       console.log("School created successfully with ID:", schoolId);
       
       // 2. Create location for the school
+      console.log("Adding school location...");
       const { error: locationError } = await supabase
         .from('school_locations')
         .insert({
@@ -194,6 +220,7 @@ const SchoolRegistrationForm: React.FC = () => {
       console.log("School location added successfully");
       
       // 3. Add headmaster information
+      console.log("Adding headmaster information...");
       const { error: adminError } = await supabase
         .from('school_administrators')
         .insert({
@@ -211,6 +238,7 @@ const SchoolRegistrationForm: React.FC = () => {
       console.log("School administrator added successfully");
       
       // 4. Create admin user account
+      console.log("Creating admin user account...");
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.adminEmail,
         password: data.adminPassword,
@@ -235,6 +263,7 @@ const SchoolRegistrationForm: React.FC = () => {
       console.log("User created successfully with ID:", authData.user.id);
       
       // 5. Assign admin role to the new user
+      console.log("Assigning admin role...");
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
@@ -262,13 +291,12 @@ const SchoolRegistrationForm: React.FC = () => {
       
     } catch (error: any) {
       console.error("Registration error:", error);
+      setRegistrationError(error.message);
       toast.error("Hitilafu kwenye usajili: " + error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const watchRegion = form.watch('region');
 
   const schoolTypes: {value: SchoolType; label: string; swahiliLabel: string}[] = [
     { value: 'kindergarten', label: 'Kindergarten', swahiliLabel: 'Chekechea' },
@@ -318,58 +346,43 @@ const SchoolRegistrationForm: React.FC = () => {
   };
 
   return (
-    <Card className="p-6 shadow-lg dark:bg-gray-800 border dark:border-gray-700">
-      <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as any)}>
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="basic">Msingi</TabsTrigger>
-          <TabsTrigger value="location">Mahali</TabsTrigger>
-          <TabsTrigger value="additional">Ziada</TabsTrigger>
-          <TabsTrigger value="admin">Msimamizi</TabsTrigger>
-        </TabsList>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            
-            <TabsContent value="basic" className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Msingi za Shule</h3>
+    <>
+      {registrationError && (
+        <Alert variant="destructive" className="mb-6">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Hitilafu kwenye usajili</AlertTitle>
+          <AlertDescription>
+            {registrationError}
+            <p className="mt-2">
+              Ikiwa tatizo linaendelea, tafadhali wasiliana na msimamizi.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="p-6 shadow-lg dark:bg-gray-800 border dark:border-gray-700">
+        <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as any)}>
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="basic">Msingi</TabsTrigger>
+            <TabsTrigger value="location">Mahali</TabsTrigger>
+            <TabsTrigger value="additional">Ziada</TabsTrigger>
+            <TabsTrigger value="admin">Msimamizi</TabsTrigger>
+          </TabsList>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Jina la Shule</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ingiza jina la shule" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="registrationNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Namba ya Usajili</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Namba ya usajili wa shule" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TabsContent value="basic" className="space-y-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Msingi za Shule</h3>
+                
                 <FormField
                   control={form.control}
-                  name="email"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Barua pepe</FormLabel>
+                      <FormLabel>Jina la Shule</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="school@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        <Input placeholder="Ingiza jina la shule" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -378,232 +391,12 @@ const SchoolRegistrationForm: React.FC = () => {
                 
                 <FormField
                   control={form.control}
-                  name="phone"
+                  name="registrationNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Namba ya Simu</FormLabel>
+                      <FormLabel>Namba ya Usajili</FormLabel>
                       <FormControl>
-                        <Input placeholder="+255 xxx xxx xxx" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Aina ya Shule</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
-                          <SelectValue placeholder="Chagua aina ya shule" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {schoolTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label} ({type.swahiliLabel})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Aina ya shule itaamua moduli na vipengele vitakavyopatikana kwenye mfumo wako.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="pt-4">
-                <Button type="button" onClick={goToNextStep}>Endelea</Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="location" className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Mahali pa Shule</h3>
-              
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nchi</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                      disabled
-                    >
-                      <FormControl>
-                        <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
-                          <SelectValue placeholder="Chagua nchi" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Tanzania">Tanzania</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Kwa sasa mfumo unapatikana Tanzania tu.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="region"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mkoa</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
-                            <SelectValue placeholder="Chagua mkoa" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {tanzanianRegions.map((region) => (
-                            <SelectItem key={region} value={region}>
-                              {region}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="district"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Wilaya</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        defaultValue={field.value}
-                        disabled={!watchRegion}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
-                            <SelectValue placeholder="Chagua wilaya" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {watchRegion === 'Dar es Salaam' ? (
-                            darEsSalaamDistricts.map((district) => (
-                              <SelectItem key={district} value={district}>
-                                {district}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="other">Wilaya nyingine</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="ward"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kata</FormLabel>
-                      <FormControl>
-                        <Input placeholder="mfano., Msasani" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="street"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Mtaa</FormLabel>
-                      <FormControl>
-                        <Input placeholder="mfano., Barabara ya Mbezi Beach" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <div className="pt-4">
-                <Button type="button" onClick={goToNextStep}>Endelea</Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="additional" className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Ziada</h3>
-              
-              <FormField
-                control={form.control}
-                name="establishedDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tarehe ya Kuanzishwa</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                    </FormControl>
-                    <FormDescription>
-                      Tarehe ambayo shule ilianzishwa rasmi.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Maelezo ya Shule</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Toa maelezo mafupi kuhusu shule yako..." {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                    </FormControl>
-                    <FormDescription>
-                      Historia fupi, dhamira, na maono ya shule yako.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="space-y-4 border-t pt-4 mt-4 dark:border-gray-700">
-                <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Taarifa za Mkuu wa Shule</h4>
-                
-                <FormField
-                  control={form.control}
-                  name="headmasterName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Jina la Mkuu wa Shule</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Jina kamili la mkuu wa shule" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        <Input placeholder="Namba ya usajili wa shule" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -613,7 +406,21 @@ const SchoolRegistrationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="headmasterPhone"
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Barua pepe</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="school@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="phone"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Namba ya Simu</FormLabel>
@@ -624,44 +431,184 @@ const SchoolRegistrationForm: React.FC = () => {
                       </FormItem>
                     )}
                   />
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Aina ya Shule</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
+                            <SelectValue placeholder="Chagua aina ya shule" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {schoolTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label} ({type.swahiliLabel})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Aina ya shule itaamua moduli na vipengele vitakavyopatikana kwenye mfumo wako.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="pt-4">
+                  <Button type="button" onClick={goToNextStep}>Endelea</Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="location" className="space-y-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Mahali pa Shule</h3>
+                
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nchi</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled
+                      >
+                        <FormControl>
+                          <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
+                            <SelectValue placeholder="Chagua nchi" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Tanzania">Tanzania</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Kwa sasa mfumo unapatikana Tanzania tu.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="region"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mkoa</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
+                              <SelectValue placeholder="Chagua mkoa" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tanzanianRegions.map((region) => (
+                              <SelectItem key={region} value={region}>
+                                {region}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   
                   <FormField
                     control={form.control}
-                    name="headmasterEmail"
+                    name="district"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Barua Pepe</FormLabel>
+                        <FormLabel>Wilaya</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                          disabled={!watchRegion}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600">
+                              <SelectValue placeholder="Chagua wilaya" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {availableDistricts.map((district) => (
+                              <SelectItem key={district} value={district}>
+                                {district}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="ward"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kata</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="headmaster@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                          <Input placeholder="mfano., Msasani" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="street"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mtaa</FormLabel>
+                        <FormControl>
+                          <Input placeholder="mfano., Barabara ya Mbezi Beach" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-              </div>
+                
+                <div className="pt-4">
+                  <Button type="button" onClick={goToNextStep}>Endelea</Button>
+                </div>
+              </TabsContent>
               
-              <div className="pt-4">
-                <Button type="button" onClick={goToNextStep}>Endelea</Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="admin" className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Msimamizi wa Mfumo</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Tengeneza akaunti ya msimamizi (admin) ya kutumia kuingia kwenye mfumo.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TabsContent value="additional" className="space-y-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Ziada</h3>
+                
                 <FormField
                   control={form.control}
-                  name="adminFirstName"
+                  name="establishedDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Jina la Kwanza</FormLabel>
+                      <FormLabel>Tarehe ya Kuanzishwa</FormLabel>
                       <FormControl>
-                        <Input placeholder="Jina la kwanza" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        <Input type="date" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                       </FormControl>
+                      <FormDescription>
+                        Tarehe ambayo shule ilianzishwa rasmi.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -669,84 +616,176 @@ const SchoolRegistrationForm: React.FC = () => {
                 
                 <FormField
                   control={form.control}
-                  name="adminLastName"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Jina la Mwisho</FormLabel>
+                      <FormLabel>Maelezo ya Shule</FormLabel>
                       <FormControl>
-                        <Input placeholder="Jina la mwisho" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        <Textarea placeholder="Toa maelezo mafupi kuhusu shule yako..." {...field} className="dark:bg-gray-700 dark:border-gray-600" />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <FormField
-                control={form.control}
-                name="adminEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Barua Pepe</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="admin@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="adminPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nenosiri</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                      </FormControl>
+                      <FormDescription>
+                        Historia fupi, dhamira, na maono ya shule yako.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                <FormField
-                  control={form.control}
-                  name="adminConfirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Thibitisha Nenosiri</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <div className="pt-4 border-t dark:border-gray-700">
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Spinner className="mr-2 h-4 w-4" />
-                      Inasajili...
-                    </>
-                  ) : (
-                    "Sajili Shule"
-                  )}
-                </Button>
+                <div className="space-y-4 border-t pt-4 mt-4 dark:border-gray-700">
+                  <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Taarifa za Mkuu wa Shule</h4>
+                  
+                  <FormField
+                    control={form.control}
+                    name="headmasterName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Jina la Mkuu wa Shule</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jina kamili la mkuu wa shule" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="headmasterPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Namba ya Simu</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+255 xxx xxx xxx" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="headmasterEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Barua Pepe</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="headmaster@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
                 
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
-                  Kwa kusajili, unakubali Masharti yetu ya Huduma na Sera ya Faragha.
+                <div className="pt-4">
+                  <Button type="button" onClick={goToNextStep}>Endelea</Button>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="admin" className="space-y-4">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Taarifa za Msimamizi wa Mfumo</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  Tengeneza akaunti ya msimamizi (admin) ya kutumia kuingia kwenye mfumo.
                 </p>
-              </div>
-            </TabsContent>
-          </form>
-        </Form>
-      </Tabs>
-    </Card>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="adminFirstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Jina la Kwanza</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jina la kwanza" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="adminLastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Jina la Mwisho</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jina la mwisho" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="adminEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Barua Pepe</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="admin@example.com" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="adminPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nenosiri</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="adminConfirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Thibitisha Nenosiri</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="••••••••" {...field} className="dark:bg-gray-700 dark:border-gray-600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="pt-4 border-t dark:border-gray-700">
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Spinner className="mr-2 h-4 w-4" />
+                        Inasajili...
+                      </>
+                    ) : (
+                      "Sajili Shule"
+                    )}
+                  </Button>
+                  
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-4">
+                    Kwa kusajili, unakubali Masharti yetu ya Huduma na Sera ya Faragha.
+                  </p>
+                </div>
+              </TabsContent>
+            </form>
+          </Form>
+        </Tabs>
+      </Card>
+    </>
   );
 };
 
