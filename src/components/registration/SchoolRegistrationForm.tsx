@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -144,6 +143,7 @@ const SchoolRegistrationForm: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      console.log("Starting school registration process...");
       // Create subdomain from school name
       const subdomain = data.name.toLowerCase().replace(/\s+/g, '');
       
@@ -160,18 +160,26 @@ const SchoolRegistrationForm: React.FC = () => {
           established_date: data.establishedDate || null,
           description: data.description || null
         })
-        .select()
-        .single();
+        .select();
       
       if (schoolError) {
+        console.error("School creation error:", schoolError);
         throw new Error(`School creation failed: ${schoolError.message}`);
       }
+      
+      if (!schoolData || schoolData.length === 0) {
+        console.error("No school data returned after insert");
+        throw new Error("School creation failed: No data returned");
+      }
+      
+      const schoolId = schoolData[0].id;
+      console.log("School created successfully with ID:", schoolId);
       
       // 2. Create location for the school
       const { error: locationError } = await supabase
         .from('school_locations')
         .insert({
-          school_id: schoolData.id,
+          school_id: schoolId,
           region: data.region,
           district: data.district,
           ward: data.ward,
@@ -179,22 +187,28 @@ const SchoolRegistrationForm: React.FC = () => {
         });
       
       if (locationError) {
+        console.error("Location creation error:", locationError);
         throw new Error(`Location creation failed: ${locationError.message}`);
       }
+      
+      console.log("School location added successfully");
       
       // 3. Add headmaster information
       const { error: adminError } = await supabase
         .from('school_administrators')
         .insert({
-          school_id: schoolData.id,
+          school_id: schoolId,
           name: data.headmasterName,
           email: data.headmasterEmail,
           phone: data.headmasterPhone
         });
       
       if (adminError) {
+        console.error("Administrator creation error:", adminError);
         throw new Error(`Administrator creation failed: ${adminError.message}`);
       }
+      
+      console.log("School administrator added successfully");
       
       // 4. Create admin user account
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -209,21 +223,32 @@ const SchoolRegistrationForm: React.FC = () => {
       });
       
       if (authError) {
+        console.error("User creation error:", authError);
         throw new Error(`User creation failed: ${authError.message}`);
       }
+      
+      if (!authData.user) {
+        console.error("No user data returned after signup");
+        throw new Error("User creation failed: No user data returned");
+      }
+      
+      console.log("User created successfully with ID:", authData.user.id);
       
       // 5. Assign admin role to the new user
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
-          user_id: authData.user!.id,
-          school_id: schoolData.id,
+          user_id: authData.user.id,
+          school_id: schoolId,
           role: 'admin'
         });
       
       if (roleError) {
+        console.error("Role assignment error:", roleError);
         throw new Error(`Role assignment failed: ${roleError.message}`);
       }
+      
+      console.log("Admin role assigned successfully");
       
       // Success!
       toast.success("Usajili wa shule umefanikiwa!", {
