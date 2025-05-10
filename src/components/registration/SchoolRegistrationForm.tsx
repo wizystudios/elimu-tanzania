@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -48,9 +47,8 @@ const districtsByRegion = {
   'Dodoma': ['Bahi', 'Chamwino', 'Chemba', 'Dodoma MC', 'Kondoa', 'Kongwa', 'Mpwapwa'],
   'Kilimanjaro': ['Hai', 'Moshi DC', 'Moshi MC', 'Mwanga', 'Rombo', 'Same', 'Siha'],
   'Mwanza': ['Ilemela', 'Kwimba', 'Magu', 'Misungwi', 'Nyamagana', 'Sengerema', 'Ukerewe'],
-  // Add more regions and districts as needed
   // Default for other regions
-  'default': ['Wilaya 1', 'Wilaya 2', 'Wilaya 3', 'Wilaya Nyingine']
+  'default': ['Wilaya 1', 'Wilaya 2', 'Wilaya 3']
 };
 
 const formSchema = z.object({
@@ -156,7 +154,9 @@ const SchoolRegistrationForm: React.FC = () => {
   // Update available districts when region changes
   useEffect(() => {
     if (watchRegion) {
-      setAvailableDistricts(districtsByRegion[watchRegion as keyof typeof districtsByRegion] || districtsByRegion.default);
+      const districts = districtsByRegion[watchRegion as keyof typeof districtsByRegion] || districtsByRegion.default;
+      setAvailableDistricts(districts);
+      
       // Reset district if region changes
       form.setValue('district', '');
     }
@@ -167,12 +167,21 @@ const SchoolRegistrationForm: React.FC = () => {
     setRegistrationError(null);
     
     try {
-      console.log("Starting school registration process...");
+      console.log("Starting school registration process with the following data:", { 
+        name: data.name, 
+        registration: data.registrationNumber,
+        email: data.email,
+        type: data.type,
+        region: data.region,
+        district: data.district
+      });
+      
       // Create subdomain from school name
       const subdomain = data.name.toLowerCase().replace(/\s+/g, '');
       
-      // 1. First, create the school record with public access
-      console.log("Attempting to insert school record as public...");
+      console.log("Attempting to insert school record...");
+      
+      // 1. Create the school record
       const { data: schoolData, error: schoolError } = await supabase
         .from('schools')
         .insert({
