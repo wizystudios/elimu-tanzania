@@ -28,9 +28,13 @@ const Schools = () => {
   };
 
   const filteredSchools = schools.filter((school) => {
+    // Use school_locations if available, otherwise fall back to address
+    const region = school.school_locations?.[0]?.region || school.address?.region || '';
+    const district = school.school_locations?.[0]?.district || school.address?.district || '';
+    
     const matchesSearch = school.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          school.address.region.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          school.address.district.toLowerCase().includes(searchQuery.toLowerCase());
+                          region.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          district.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesType = selectedType === null || school.type === selectedType;
     
@@ -134,7 +138,7 @@ const Schools = () => {
                   <tr key={school.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{school.name}</div>
-                      <div className="text-xs text-gray-500">Est. {new Date(school.establishedDate).getFullYear()}</div>
+                      <div className="text-xs text-gray-500">Est. {new Date(school.established_date || school.establishedDate || '').getFullYear()}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getSchoolTypeBadgeColor(school.type)}`}>
@@ -142,14 +146,23 @@ const Schools = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {school.address.region}, {school.address.district}
+                      {(school.school_locations && school.school_locations[0]) 
+                        ? `${school.school_locations[0].region}, ${school.school_locations[0].district}`
+                        : school.address 
+                          ? `${school.address.region}, ${school.address.district}`
+                          : 'Location not specified'
+                      }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {school.registrationNumber}
+                      {school.registration_number || school.registrationNumber || 'Not registered'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{school.contactInfo.email}</div>
-                      <div className="text-xs text-gray-500">{school.contactInfo.phone}</div>
+                      <div className="text-sm text-gray-900">
+                        {school.contactInfo ? school.contactInfo.email : school.email}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {school.contactInfo ? school.contactInfo.phone : school.phone}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</button>

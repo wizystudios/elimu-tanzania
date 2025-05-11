@@ -1,3 +1,4 @@
+
 import { School, User, Student, Teacher, Class, Subject, TeacherRole } from '../types';
 
 // Mock Schools
@@ -6,6 +7,16 @@ export const schools: School[] = [
     id: '1',
     name: 'Mwenge Primary School',
     type: 'primary',
+    email: 'info@mwengeprimary.edu.tz',
+    phone: '+255 755 123 456',
+    subdomain: 'mwengeprimary',
+    description: 'A leading primary school in Dar es Salaam region',
+    established_date: '1985-01-15',
+    registration_number: 'DSM/PRM/0123/85',
+    created_at: '2023-01-01',
+    updated_at: '2023-01-01',
+    logo: null,
+    // Legacy properties
     address: {
       region: 'Dar es Salaam',
       district: 'Kinondoni',
@@ -16,7 +27,6 @@ export const schools: School[] = [
       email: 'info@mwengeprimary.edu.tz',
       phone: '+255 755 123 456'
     },
-    description: 'A leading primary school in Dar es Salaam region',
     establishedDate: '1985-01-15',
     registrationNumber: 'DSM/PRM/0123/85'
   },
@@ -24,6 +34,16 @@ export const schools: School[] = [
     id: '2',
     name: 'Baobab Secondary School',
     type: 'secondary',
+    email: 'admin@baobabsecondary.edu.tz',
+    phone: '+255 715 987 654',
+    subdomain: 'baobabsecondary',
+    description: 'Quality secondary education in Mwanza region',
+    established_date: '1998-05-20',
+    registration_number: 'MWZ/SEC/0456/98',
+    created_at: '2023-01-02',
+    updated_at: '2023-01-02',
+    logo: null,
+    // Legacy properties
     address: {
       region: 'Mwanza',
       district: 'Ilemela',
@@ -34,7 +54,6 @@ export const schools: School[] = [
       email: 'admin@baobabsecondary.edu.tz',
       phone: '+255 715 987 654'
     },
-    description: 'Quality secondary education in Mwanza region',
     establishedDate: '1998-05-20',
     registrationNumber: 'MWZ/SEC/0456/98'
   },
@@ -42,6 +61,16 @@ export const schools: School[] = [
     id: '3',
     name: 'Little Hearts Kindergarten',
     type: 'kindergarten',
+    email: 'info@littlehearts.edu.tz',
+    phone: '+255 765 321 789',
+    subdomain: 'littlehearts',
+    description: 'Nurturing early childhood education in Arusha',
+    established_date: '2010-03-10',
+    registration_number: 'ARU/KG/0789/10',
+    created_at: '2023-01-03',
+    updated_at: '2023-01-03',
+    logo: null,
+    // Legacy properties
     address: {
       region: 'Arusha',
       district: 'Arusha City',
@@ -52,7 +81,6 @@ export const schools: School[] = [
       email: 'info@littlehearts.edu.tz',
       phone: '+255 765 321 789'
     },
-    description: 'Nurturing early childhood education in Arusha',
     establishedDate: '2010-03-10',
     registrationNumber: 'ARU/KG/0789/10'
   },
@@ -60,6 +88,16 @@ export const schools: School[] = [
     id: '4',
     name: 'Tanzania Advanced Academy',
     type: 'advanced',
+    email: 'principal@taacademy.edu.tz',
+    phone: '+255 778 456 123',
+    subdomain: 'taacademy',
+    description: 'Premier advanced level education in the capital city',
+    established_date: '2005-08-25',
+    registration_number: 'DDM/ADV/0234/05',
+    created_at: '2023-01-04',
+    updated_at: '2023-01-04',
+    logo: null,
+    // Legacy properties
     address: {
       region: 'Dodoma',
       district: 'Dodoma City',
@@ -70,7 +108,6 @@ export const schools: School[] = [
       email: 'principal@taacademy.edu.tz',
       phone: '+255 778 456 123'
     },
-    description: 'Premier advanced level education in the capital city',
     establishedDate: '2005-08-25',
     registrationNumber: 'DDM/ADV/0234/05'
   }
