@@ -24,6 +24,19 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Define types for our navigation items
+interface NavItemChild {
+  name: string;
+  path: string;
+}
+
+interface NavItem {
+  name: string;
+  path: string;
+  icon: React.ReactNode;
+  children?: NavItemChild[];
+}
+
 const Sidebar = () => {
   const location = useLocation();
   const [expanded, setExpanded] = useState(true);
@@ -32,12 +45,12 @@ const Sidebar = () => {
   // Define navigation items based on user role
   const getNavItems = () => {
     // Common items for all roles
-    const commonItems = [
+    const commonItems: NavItem[] = [
       { name: 'Dashboard', path: '/dashboard', icon: <Home className="h-5 w-5" /> },
     ];
 
     // Admin specific items
-    const adminItems = [
+    const adminItems: NavItem[] = [
       { name: 'Schools', path: '/schools', icon: <School className="h-5 w-5" /> },
       { name: 'Users', path: '/users', icon: <UserCog className="h-5 w-5" /> },
       { 
@@ -121,7 +134,7 @@ const Sidebar = () => {
     ];
 
     // Teacher specific items
-    const teacherItems = [
+    const teacherItems: NavItem[] = [
       { name: 'My Classes', path: '/my-classes', icon: <Book className="h-5 w-5" /> },
       { name: 'Attendance', path: '/attendance', icon: <ClipboardList className="h-5 w-5" /> },
       { name: 'Assignments', path: '/assignments', icon: <FileText className="h-5 w-5" /> },
@@ -131,25 +144,25 @@ const Sidebar = () => {
     ];
 
     // Headmaster specific additional items
-    const headmasterItems = [
+    const headmasterItems: NavItem[] = [
       { name: 'Teacher Management', path: '/teacher-management', icon: <UserCog className="h-5 w-5" /> },
       { name: 'School Policies', path: '/policies', icon: <ShieldCheck className="h-5 w-5" /> },
     ];
 
     // Academic teacher specific items
-    const academicTeacherItems = [
+    const academicTeacherItems: NavItem[] = [
       { name: 'Curriculum Plans', path: '/curriculum', icon: <ClipboardList className="h-5 w-5" /> },
       { name: 'Academic Reports', path: '/academic-reports', icon: <Activity className="h-5 w-5" /> },
     ];
 
     // Discipline teacher specific items
-    const disciplineTeacherItems = [
+    const disciplineTeacherItems: NavItem[] = [
       { name: 'Discipline Cases', path: '/discipline-cases', icon: <ShieldCheck className="h-5 w-5" /> },
       { name: 'Counseling', path: '/counseling', icon: <MessageSquare className="h-5 w-5" /> },
     ];
 
     // Student specific items
-    const studentItems = [
+    const studentItems: NavItem[] = [
       { name: 'My Classes', path: '/my-classes', icon: <Book className="h-5 w-5" /> },
       { name: 'Assignments', path: '/assignments', icon: <FileText className="h-5 w-5" /> },
       { name: 'Exams', path: '/exams', icon: <Award className="h-5 w-5" /> },
@@ -159,7 +172,7 @@ const Sidebar = () => {
     ];
 
     // Parent specific items
-    const parentItems = [
+    const parentItems: NavItem[] = [
       { name: 'My Children', path: '/my-children', icon: <Users className="h-5 w-5" /> },
       { name: 'Academic Progress', path: '/academic-progress', icon: <Activity className="h-5 w-5" /> },
       { name: 'Attendance', path: '/attendance', icon: <ClipboardList className="h-5 w-5" /> },

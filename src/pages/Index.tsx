@@ -12,6 +12,19 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
+interface SenderType {
+  first_name?: string;
+  last_name?: string;
+}
+
+interface AnnouncementType {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  sender: SenderType | null;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, schoolId, schoolName, userRole } = useAuth();
@@ -80,19 +93,20 @@ const Dashboard = () => {
           classes: classesResult.count || 0
         });
         
-        // Fetch recent activities
+        // Fetch recent activities (announcements)
         const { data: activities } = await supabase
           .from('announcements')
-          .select('*, sender:sender_id(first_name, last_name)')
+          .select('id, title, content, created_at, sender:profiles(first_name, last_name)')
           .eq('school_id', schoolId)
           .order('created_at', { ascending: false })
           .limit(5);
         
+        // Process the announcements data
         setRecentActivities(
-          activities ? activities.map(activity => ({
+          activities && activities.length > 0 ? activities.map((activity: AnnouncementType) => ({
             id: activity.id,
             user: {
-              name: activity.sender?.first_name + ' ' + activity.sender?.last_name || 'Admin',
+              name: activity.sender ? `${activity.sender.first_name || ''} ${activity.sender.last_name || ''}`.trim() : 'Admin',
               avatar: '',
             },
             action: activity.title,
@@ -122,7 +136,7 @@ const Dashboard = () => {
           .limit(5);
           
         setUpcomingEvents(
-          events ? events.map(event => ({
+          events && events.length > 0 ? events.map(event => ({
             id: event.id,
             title: event.title,
             date: new Date(event.start_date).toLocaleDateString(),
