@@ -20,7 +20,9 @@ import {
   UserCog,
   ShieldCheck,
   Activity,
-  UserPlus
+  UserPlus,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -41,6 +43,16 @@ const Sidebar = () => {
   const location = useLocation();
   const [expanded, setExpanded] = useState(true);
   const { userRole } = useAuth();
+  
+  // Track open dropdown menus
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  
+  const toggleMenu = (menuName: string) => {
+    setOpenMenus(prev => ({
+      ...prev,
+      [menuName]: !prev[menuName]
+    }));
+  };
 
   // Define navigation items based on user role
   const getNavItems = () => {
@@ -155,12 +167,6 @@ const Sidebar = () => {
       { name: 'Academic Reports', path: '/academic-reports', icon: <Activity className="h-5 w-5" /> },
     ];
 
-    // Discipline teacher specific items
-    const disciplineTeacherItems: NavItem[] = [
-      { name: 'Discipline Cases', path: '/discipline-cases', icon: <ShieldCheck className="h-5 w-5" /> },
-      { name: 'Counseling', path: '/counseling', icon: <MessageSquare className="h-5 w-5" /> },
-    ];
-
     // Student specific items
     const studentItems: NavItem[] = [
       { name: 'My Classes', path: '/my-classes', icon: <Book className="h-5 w-5" /> },
@@ -194,7 +200,7 @@ const Sidebar = () => {
       case 'academic_teacher':
         return [...commonItems, ...teacherItems, ...academicTeacherItems];
       case 'discipline_teacher':
-        return [...commonItems, ...teacherItems, ...disciplineTeacherItems];
+        return [...commonItems, ...teacherItems];
       case 'student':
         return [...commonItems, ...studentItems];
       case 'parent':
@@ -205,6 +211,11 @@ const Sidebar = () => {
   };
 
   const navItems = getNavItems();
+
+  // Check if a path is active (exact match or child routes)
+  const isActive = (path: string) => {
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
 
   return (
     <aside 
@@ -236,42 +247,66 @@ const Sidebar = () => {
           )}
         </button>
       </div>
-      <nav className="mt-6 px-2">
+      <nav className="mt-6 px-2 h-[calc(100vh-4rem)] overflow-y-auto">
         <ul className="space-y-2">
           {navItems.map((item) => (
             <li key={item.path}>
-              <Link
-                to={item.path}
-                className={cn(
-                  "flex items-center px-4 py-3 text-sm rounded-md transition-colors",
-                  location.pathname === item.path
-                    ? "bg-white text-tanzanian-blue font-medium"
-                    : "text-white hover:bg-tanzanian-blue/30"
-                )}
-              >
-                <span className="mr-3">{item.icon}</span>
-                {expanded && <span>{item.name}</span>}
-              </Link>
-              
-              {/* Submenu items */}
-              {expanded && item.children && (
-                <ul className="pl-10 mt-1 space-y-1">
-                  {item.children.map((child) => (
-                    <li key={child.path}>
-                      <Link
-                        to={child.path}
-                        className={cn(
-                          "flex items-center py-2 text-xs rounded-md transition-colors",
-                          location.pathname === child.path
-                            ? "text-white font-medium"
-                            : "text-white/70 hover:text-white"
-                        )}
-                      >
-                        <span>{child.name}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+              {item.children ? (
+                // With dropdown menu
+                <div>
+                  <button
+                    onClick={() => toggleMenu(item.name)}
+                    className={cn(
+                      "flex items-center justify-between w-full px-4 py-3 text-sm rounded-md transition-colors",
+                      isActive(item.path)
+                        ? "bg-white/10 text-white font-medium"
+                        : "text-white hover:bg-tanzanian-blue/30"
+                    )}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-3">{item.icon}</span>
+                      {expanded && <span>{item.name}</span>}
+                    </div>
+                    {expanded && (
+                      openMenus[item.name] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+                  
+                  {/* Submenu items */}
+                  {expanded && openMenus[item.name] && (
+                    <ul className="pl-10 mt-1 space-y-1 overflow-hidden transition-all duration-300">
+                      {item.children.map((child) => (
+                        <li key={child.path} className="animate-fade-in">
+                          <Link
+                            to={child.path}
+                            className={cn(
+                              "flex items-center py-2 text-xs rounded-md transition-colors",
+                              location.pathname === child.path
+                                ? "text-white font-medium"
+                                : "text-white/70 hover:text-white"
+                            )}
+                          >
+                            <span>{child.name}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
+                // Without dropdown
+                <Link
+                  to={item.path}
+                  className={cn(
+                    "flex items-center px-4 py-3 text-sm rounded-md transition-colors",
+                    isActive(item.path)
+                      ? "bg-white text-tanzanian-blue font-medium"
+                      : "text-white hover:bg-tanzanian-blue/30"
+                  )}
+                >
+                  <span className="mr-3">{item.icon}</span>
+                  {expanded && <span>{item.name}</span>}
+                </Link>
               )}
             </li>
           ))}

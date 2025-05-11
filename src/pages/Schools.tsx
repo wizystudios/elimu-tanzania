@@ -1,13 +1,67 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { schools } from '@/data/mockData';
 import { School } from '@/types';
 import { Search, Plus, Filter } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const Schools = () => {
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [selectedType, setSelectedType] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [schoolsList, setSchoolsList] = useState<School[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user, userRole, schoolId } = useAuth();
+
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        setLoading(true);
+        
+        let query = supabase.from('schools').select('*, school_locations(*)');
+        
+        // If user is not a super_admin, filter by their school_id
+        if (userRole !== 'super_admin' && schoolId) {
+          query = query.eq('id', schoolId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        if (data) {
+          setSchoolsList(data);
+        } else {
+          // Fallback to mock data only in development
+          if (process.env.NODE_ENV === 'development') {
+            // Filter mock data if user is not super_admin
+            const filteredMockSchools = userRole === 'super_admin' 
+              ? schools 
+              : schools.filter(school => school.id === schoolId);
+            
+            setSchoolsList(filteredMockSchools);
+          } else {
+            setSchoolsList([]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching schools:', error);
+        toast.error('Failed to load schools data');
+        
+        // Fallback to filtered mock data
+        const filteredMockSchools = userRole === 'super_admin' 
+          ? schools 
+          : schools.filter(school => school.id === schoolId);
+        
+        setSchoolsList(filteredMockSchools);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSchools();
+  }, [userRole, schoolId]);
 
   const getSchoolTypeLabel = (type: School['type']): string => {
     switch (type) {
@@ -27,7 +81,7 @@ const Schools = () => {
     }
   };
 
-  const filteredSchools = schools.filter((school) => {
+  const filteredSchools = schoolsList.filter((school) => {
     // Use school_locations if available, otherwise fall back to address
     const region = school.school_locations?.[0]?.region || school.address?.region || '';
     const district = school.school_locations?.[0]?.district || school.address?.district || '';
@@ -110,70 +164,76 @@ const Schools = () => {
         {/* Schools List */}
         <div className="bg-white rounded-lg shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    School Name
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Registration
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSchools.map((school) => (
-                  <tr key={school.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{school.name}</div>
-                      <div className="text-xs text-gray-500">Est. {new Date(school.established_date || school.establishedDate || '').getFullYear()}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getSchoolTypeBadgeColor(school.type)}`}>
-                        {getSchoolTypeLabel(school.type)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {(school.school_locations && school.school_locations[0]) 
-                        ? `${school.school_locations[0].region}, ${school.school_locations[0].district}`
-                        : school.address 
-                          ? `${school.address.region}, ${school.address.district}`
-                          : 'Location not specified'
-                      }
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {school.registration_number || school.registrationNumber || 'Not registered'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {school.contactInfo ? school.contactInfo.email : school.email}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {school.contactInfo ? school.contactInfo.phone : school.phone}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</button>
-                      <button className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</button>
-                      <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
-                    </td>
+            {loading ? (
+              <div className="flex justify-center items-center p-8">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-tanzanian-blue"></div>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      School Name
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Registration
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredSchools.length === 0 && (
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredSchools.map((school) => (
+                    <tr key={school.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{school.name}</div>
+                        <div className="text-xs text-gray-500">Est. {new Date(school.established_date).getFullYear()}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getSchoolTypeBadgeColor(school.type)}`}>
+                          {getSchoolTypeLabel(school.type)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {(school.school_locations && school.school_locations[0]) 
+                          ? `${school.school_locations[0].region}, ${school.school_locations[0].district}`
+                          : school.address 
+                            ? `${school.address.region}, ${school.address.district}`
+                            : 'Location not specified'
+                        }
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {school.registration_number || 'Not registered'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {school.email}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {school.phone}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</button>
+                        <button className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</button>
+                        <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {!loading && filteredSchools.length === 0 && (
               <div className="text-center py-10">
                 <p className="text-gray-500">No schools found matching your search criteria.</p>
               </div>
