@@ -1,148 +1,166 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import RecentActivities from '@/components/dashboard/RecentActivities';
 import UpcomingEvents from '@/components/dashboard/UpcomingEvents';
 import SchoolsOverview from '@/components/dashboard/SchoolsOverview';
-import { schools } from '@/data/mockData';
 import { School, GraduationCap, Users, Book } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Spinner } from '@/components/ui/spinner';
+import { toast } from 'sonner';
 
 const Dashboard = () => {
-  // Mock data for recent activities
-  const recentActivities = [
-    {
-      id: '1',
-      user: {
-        name: 'Fatima Hassan',
-        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1374&auto=format&fit=crop',
-      },
-      action: 'registered a new student in',
-      target: 'Class 4A',
-      timestamp: '10 minutes ago',
-      status: 'completed' as const,
-    },
-    {
-      id: '2',
-      user: {
-        name: 'Emmanuel Mwenda',
-        avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1374&auto=format&fit=crop',
-      },
-      action: 'submitted exam results for',
-      target: 'Mathematics - Class 4B',
-      timestamp: '2 hours ago',
-      status: 'completed' as const,
-    },
-    {
-      id: '3',
-      user: {
-        name: 'Grace Makonjo',
-        avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?q=80&w=1374&auto=format&fit=crop',
-      },
-      action: 'updated the class schedule for',
-      target: 'Form 2B',
-      timestamp: '4 hours ago',
-      status: 'pending' as const,
-    },
-    {
-      id: '4',
-      user: {
-        name: 'James Kimaro',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1374&auto=format&fit=crop',
-      },
-      action: 'registered a new school',
-      target: 'Zanzibar Secondary School',
-      timestamp: '1 day ago',
-      status: 'completed' as const,
-    },
-    {
-      id: '5',
-      user: {
-        name: 'David Munuo',
-      },
-      action: 'requested access to student records',
-      timestamp: '1 day ago',
-      status: 'pending' as const,
-    }
-  ];
+  const { user, schoolId, schoolName } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [schoolData, setSchoolData] = useState<any | null>(null);
+  const [stats, setStats] = useState({
+    students: 0,
+    teachers: 0,
+    classes: 0
+  });
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
 
-  // Mock data for upcoming events
-  const upcomingEvents = [
-    {
-      id: '1',
-      title: 'End of Term Examinations',
-      date: 'May 15, 2025',
-      time: '8:00 AM',
-      location: 'All Schools',
-      type: 'exam' as const,
-    },
-    {
-      id: '2',
-      title: 'Teachers Meeting',
-      date: 'May 10, 2025',
-      time: '2:00 PM',
-      location: 'Main Conference Room',
-      type: 'meeting' as const,
-    },
-    {
-      id: '3',
-      title: 'Parents Day',
-      date: 'May 20, 2025',
-      time: '9:00 AM',
-      location: 'School Grounds',
-      type: 'meeting' as const,
-    },
-    {
-      id: '4',
-      title: 'National Holiday - Workers Day',
-      date: 'May 1, 2025',
-      type: 'holiday' as const,
-    }
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!schoolId) return;
+      
+      setIsLoading(true);
+      try {
+        // Fetch school data
+        const { data: school, error: schoolError } = await supabase
+          .from('schools')
+          .select(`
+            *,
+            school_locations(*)
+          `)
+          .eq('id', schoolId)
+          .maybeSingle();
+          
+        if (schoolError) throw schoolError;
+        setSchoolData(school);
+        
+        // Fetch stats
+        const [studentsResult, teachersResult, classesResult] = await Promise.all([
+          supabase
+            .from('students')
+            .select('id', { count: 'exact' })
+            .eq('school_id', schoolId),
+          supabase
+            .from('user_roles')
+            .select('id', { count: 'exact' })
+            .eq('school_id', schoolId)
+            .eq('role', 'teacher'),
+          supabase
+            .from('classes')
+            .select('id', { count: 'exact' })
+            .eq('school_id', schoolId)
+        ]);
+        
+        setStats({
+          students: studentsResult.count || 0,
+          teachers: teachersResult.count || 0,
+          classes: classesResult.count || 0
+        });
+        
+        // For now, use mock data for activities and events
+        // These would be replaced with real data from the database as those features are implemented
+        setRecentActivities([
+          {
+            id: '1',
+            user: {
+              name: user?.email?.split('@')[0] || 'Admin',
+              avatar: '',
+            },
+            action: 'registered the school',
+            target: schoolName,
+            timestamp: 'recently',
+            status: 'completed' as const,
+          }
+        ]);
+        
+        setUpcomingEvents([
+          {
+            id: '1',
+            title: 'Complete School Setup',
+            date: new Date().toLocaleDateString(),
+            time: 'Today',
+            location: 'Admin Dashboard',
+            type: 'task' as const,
+          }
+        ]);
+        
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast.error('Hitilafu imetokea wakati wa kupakua data.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, [schoolId, schoolName, user]);
+  
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-[80vh]">
+          <div className="flex flex-col items-center">
+            <Spinner className="h-8 w-8" />
+            <p className="mt-4 text-gray-600">Inapakia data...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
       <div>
         <h1 className="text-2xl font-bold mb-2">Dashboard</h1>
-        <p className="text-gray-600 mb-6">Welcome to Elimu Tanzania School Management System.</p>
+        <p className="text-gray-600 mb-6">
+          {schoolName ? `Karibu kwenye ${schoolName}` : 'Karibu kwenye Elimu Tanzania School Management System.'}
+        </p>
       
         {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-          <StatCard 
-            title="Total Schools" 
-            value="4" 
-            icon={<School className="h-5 w-5" />} 
-            change={{ value: 25, positive: true }}
-            color="blue"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
           <StatCard 
             title="Students" 
-            value="156" 
+            value={stats.students.toString()} 
             icon={<Users className="h-5 w-5" />} 
-            change={{ value: 12, positive: true }}
+            change={{ value: 0, positive: true }}
             color="green"
           />
           <StatCard 
             title="Teachers" 
-            value="28" 
+            value={stats.teachers.toString()} 
             icon={<GraduationCap className="h-5 w-5" />} 
-            change={{ value: 5, positive: true }}
+            change={{ value: 0, positive: true }}
             color="purple"
           />
           <StatCard 
             title="Classes" 
-            value="18" 
+            value={stats.classes.toString()} 
             icon={<Book className="h-5 w-5" />}
-            change={{ value: 8, positive: true }}
+            change={{ value: 0, positive: true }}
             color="yellow"
           />
         </div>
 
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Schools Overview */}
+          {/* School Overview */}
           <div className="lg:col-span-2">
-            <SchoolsOverview schools={schools} />
+            {schoolData ? (
+              <SchoolsOverview schools={[schoolData]} />
+            ) : (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h3 className="text-lg font-semibold mb-4">School Information</h3>
+                <p>No school data available.</p>
+              </div>
+            )}
           </div>
           
           {/* Upcoming Events */}
