@@ -10,27 +10,188 @@ import {
   GraduationCap, 
   Calendar, 
   FileText, 
-  MessageSquare, 
+  MessageSquare,
+  Bell,
   Settings, 
-  User
+  User,
+  PlusCircle,
+  ClipboardList,
+  Award,
+  UserCog,
+  ShieldCheck,
+  Activity,
+  UserPlus
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Sidebar = () => {
   const location = useLocation();
   const [expanded, setExpanded] = useState(true);
+  const { userRole } = useAuth();
 
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: <Home className="h-5 w-5" /> },
-    { name: 'Schools', path: '/schools', icon: <School className="h-5 w-5" /> },
-    { name: 'Students', path: '/students', icon: <Users className="h-5 w-5" /> },
-    { name: 'Teachers', path: '/teachers', icon: <GraduationCap className="h-5 w-5" /> },
-    { name: 'Classes', path: '/classes', icon: <Book className="h-5 w-5" /> },
-    { name: 'Schedules', path: '/schedules', icon: <Calendar className="h-5 w-5" /> },
-    { name: 'Exams', path: '/exams', icon: <FileText className="h-5 w-5" /> },
-    { name: 'Messages', path: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
-    { name: 'Parents', path: '/parents', icon: <User className="h-5 w-5" /> },
-    { name: 'Settings', path: '/settings', icon: <Settings className="h-5 w-5" /> },
-  ];
+  // Define navigation items based on user role
+  const getNavItems = () => {
+    // Common items for all roles
+    const commonItems = [
+      { name: 'Dashboard', path: '/dashboard', icon: <Home className="h-5 w-5" /> },
+    ];
+
+    // Admin specific items
+    const adminItems = [
+      { name: 'Schools', path: '/schools', icon: <School className="h-5 w-5" /> },
+      { name: 'Users', path: '/users', icon: <UserCog className="h-5 w-5" /> },
+      { 
+        name: 'Teachers', 
+        path: '/teachers', 
+        icon: <GraduationCap className="h-5 w-5" />,
+        children: [
+          { name: 'All Teachers', path: '/teachers' },
+          { name: 'Add Teacher', path: '/teachers/add' },
+          { name: 'Assign Subjects', path: '/teachers/assign' }
+        ]
+      },
+      { 
+        name: 'Students', 
+        path: '/students', 
+        icon: <Users className="h-5 w-5" />,
+        children: [
+          { name: 'All Students', path: '/students' },
+          { name: 'Add Student', path: '/students/add' },
+          { name: 'Attendance', path: '/students/attendance' }
+        ]
+      },
+      { 
+        name: 'Parents', 
+        path: '/parents', 
+        icon: <User className="h-5 w-5" />,
+        children: [
+          { name: 'All Parents', path: '/parents' },
+          { name: 'Add Parent', path: '/parents/add' },
+          { name: 'Link to Students', path: '/parents/link' }
+        ]
+      },
+      { 
+        name: 'Classes', 
+        path: '/classes', 
+        icon: <Book className="h-5 w-5" />,
+        children: [
+          { name: 'All Classes', path: '/classes' },
+          { name: 'Create Class', path: '/classes/create' }
+        ]
+      },
+      { 
+        name: 'Subjects', 
+        path: '/subjects', 
+        icon: <ClipboardList className="h-5 w-5" />,
+        children: [
+          { name: 'All Subjects', path: '/subjects' },
+          { name: 'Add Subject', path: '/subjects/add' }
+        ]
+      },
+      { 
+        name: 'Exams', 
+        path: '/exams', 
+        icon: <FileText className="h-5 w-5" />,
+        children: [
+          { name: 'All Exams', path: '/exams' },
+          { name: 'Create Exam', path: '/exams/create' },
+          { name: 'Results', path: '/exams/results' }
+        ]
+      },
+      { 
+        name: 'Calendar', 
+        path: '/calendar', 
+        icon: <Calendar className="h-5 w-5" />,
+        children: [
+          { name: 'School Calendar', path: '/calendar' },
+          { name: 'Add Event', path: '/calendar/add' }
+        ]
+      },
+      { 
+        name: 'Announcements', 
+        path: '/announcements', 
+        icon: <Bell className="h-5 w-5" />,
+        children: [
+          { name: 'All Announcements', path: '/announcements' },
+          { name: 'Create Announcement', path: '/announcements/create' }
+        ]
+      },
+      { name: 'Messages', path: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
+      { name: 'Settings', path: '/settings', icon: <Settings className="h-5 w-5" /> },
+    ];
+
+    // Teacher specific items
+    const teacherItems = [
+      { name: 'My Classes', path: '/my-classes', icon: <Book className="h-5 w-5" /> },
+      { name: 'Attendance', path: '/attendance', icon: <ClipboardList className="h-5 w-5" /> },
+      { name: 'Assignments', path: '/assignments', icon: <FileText className="h-5 w-5" /> },
+      { name: 'Exams', path: '/exams', icon: <Award className="h-5 w-5" /> },
+      { name: 'Calendar', path: '/calendar', icon: <Calendar className="h-5 w-5" /> },
+      { name: 'Messages', path: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
+    ];
+
+    // Headmaster specific additional items
+    const headmasterItems = [
+      { name: 'Teacher Management', path: '/teacher-management', icon: <UserCog className="h-5 w-5" /> },
+      { name: 'School Policies', path: '/policies', icon: <ShieldCheck className="h-5 w-5" /> },
+    ];
+
+    // Academic teacher specific items
+    const academicTeacherItems = [
+      { name: 'Curriculum Plans', path: '/curriculum', icon: <ClipboardList className="h-5 w-5" /> },
+      { name: 'Academic Reports', path: '/academic-reports', icon: <Activity className="h-5 w-5" /> },
+    ];
+
+    // Discipline teacher specific items
+    const disciplineTeacherItems = [
+      { name: 'Discipline Cases', path: '/discipline-cases', icon: <ShieldCheck className="h-5 w-5" /> },
+      { name: 'Counseling', path: '/counseling', icon: <MessageSquare className="h-5 w-5" /> },
+    ];
+
+    // Student specific items
+    const studentItems = [
+      { name: 'My Classes', path: '/my-classes', icon: <Book className="h-5 w-5" /> },
+      { name: 'Assignments', path: '/assignments', icon: <FileText className="h-5 w-5" /> },
+      { name: 'Exams', path: '/exams', icon: <Award className="h-5 w-5" /> },
+      { name: 'Attendance', path: '/attendance', icon: <ClipboardList className="h-5 w-5" /> },
+      { name: 'Calendar', path: '/calendar', icon: <Calendar className="h-5 w-5" /> },
+      { name: 'Messages', path: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
+    ];
+
+    // Parent specific items
+    const parentItems = [
+      { name: 'My Children', path: '/my-children', icon: <Users className="h-5 w-5" /> },
+      { name: 'Academic Progress', path: '/academic-progress', icon: <Activity className="h-5 w-5" /> },
+      { name: 'Attendance', path: '/attendance', icon: <ClipboardList className="h-5 w-5" /> },
+      { name: 'Calendar', path: '/calendar', icon: <Calendar className="h-5 w-5" /> },
+      { name: 'Messages', path: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
+    ];
+
+    // Return items based on user role
+    switch (userRole) {
+      case 'super_admin':
+        return [...commonItems, ...adminItems];
+      case 'admin':
+        return [...commonItems, ...adminItems];
+      case 'teacher':
+        return [...commonItems, ...teacherItems];
+      case 'headmaster':
+      case 'vice_headmaster':
+        return [...commonItems, ...teacherItems, ...headmasterItems];
+      case 'academic_teacher':
+        return [...commonItems, ...teacherItems, ...academicTeacherItems];
+      case 'discipline_teacher':
+        return [...commonItems, ...teacherItems, ...disciplineTeacherItems];
+      case 'student':
+        return [...commonItems, ...studentItems];
+      case 'parent':
+        return [...commonItems, ...parentItems];
+      default:
+        return commonItems;
+    }
+  };
+
+  const navItems = getNavItems();
 
   return (
     <aside 
@@ -78,6 +239,27 @@ const Sidebar = () => {
                 <span className="mr-3">{item.icon}</span>
                 {expanded && <span>{item.name}</span>}
               </Link>
+              
+              {/* Submenu items */}
+              {expanded && item.children && (
+                <ul className="pl-10 mt-1 space-y-1">
+                  {item.children.map((child) => (
+                    <li key={child.path}>
+                      <Link
+                        to={child.path}
+                        className={cn(
+                          "flex items-center py-2 text-xs rounded-md transition-colors",
+                          location.pathname === child.path
+                            ? "text-white font-medium"
+                            : "text-white/70 hover:text-white"
+                        )}
+                      >
+                        <span>{child.name}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

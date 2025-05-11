@@ -5,14 +5,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+type TeacherRole = 
+  'normal_teacher' | 
+  'headmaster' | 
+  'vice_headmaster' | 
+  'academic_teacher' | 
+  'discipline_teacher' | 
+  'sports_teacher' | 
+  'environment_teacher';
+
+type UserRoleType = 'super_admin' | 'admin' | 'teacher' | 'student' | 'parent';
+
 type AuthContextType = {
   session: Session | null;
   user: User | null;
   userRole: string | null;
+  teacherRole: TeacherRole | null;
   schoolId: string | null;
   schoolName: string | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,15 +34,68 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [teacherRole, setTeacherRole] = useState<TeacherRole | null>(null);
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  const fetchUserData = async (userId: string | undefined) => {
+    if (!userId) return;
+    
+    try {
+      console.log("Fetching user data for ID:", userId);
+      
+      // Fetch user role
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role, school_id, teacher_role')
+        .eq('user_id', userId)
+        .maybeSingle();
+        
+      if (roleError) {
+        console.error("Error fetching user role:", roleError);
+        return;
+      }
+      
+      console.log("User role data:", roleData);
+      
+      setUserRole(roleData?.role || null);
+      setTeacherRole(roleData?.teacher_role || null);
+      
+      if (roleData?.school_id) {
+        setSchoolId(roleData.school_id);
+        
+        // Fetch school name
+        const { data: schoolData, error: schoolError } = await supabase
+          .from('schools')
+          .select('name')
+          .eq('id', roleData.school_id)
+          .maybeSingle();
+          
+        if (schoolError) {
+          console.error("Error fetching school data:", schoolError);
+        } else {
+          console.log("School data:", schoolData);
+          setSchoolName(schoolData?.name || null);
+        }
+      }
+    } catch (error) {
+      console.error("Error in fetchUserData:", error);
+    }
+  };
+
+  const refreshUserData = async () => {
+    if (user?.id) {
+      await fetchUserData(user.id);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
+        console.log("Auth state changed:", event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
@@ -40,6 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           setUserRole(null);
+          setTeacherRole(null);
           setSchoolId(null);
           setSchoolName(null);
         }
@@ -49,7 +116,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // THEN check for existing session
     const initializeAuth = async () => {
       try {
+        console.log("Initializing auth...");
         const { data: { session: existingSession } } = await supabase.auth.getSession();
+        console.log("Existing session:", existingSession ? "Yes" : "No");
         setSession(existingSession);
         setUser(existingSession?.user ?? null);
         
@@ -70,45 +139,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [navigate]);
 
-  const fetchUserData = async (userId: string | undefined) => {
-    if (!userId) return;
-    
-    try {
-      // Fetch user role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role, school_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-        
-      if (roleError) {
-        console.error("Error fetching user role:", roleError);
-        return;
-      }
-      
-      setUserRole(roleData?.role || null);
-      
-      if (roleData?.school_id) {
-        setSchoolId(roleData.school_id);
-        
-        // Fetch school name
-        const { data: schoolData, error: schoolError } = await supabase
-          .from('schools')
-          .select('name')
-          .eq('id', roleData.school_id)
-          .maybeSingle();
-          
-        if (schoolError) {
-          console.error("Error fetching school data:", schoolError);
-        } else {
-          setSchoolName(schoolData?.name || null);
-        }
-      }
-    } catch (error) {
-      console.error("Error in fetchUserData:", error);
-    }
-  };
-
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -125,10 +155,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       session, 
       user, 
       userRole, 
+      teacherRole,
       schoolId,
       schoolName,
       isLoading, 
-      signOut 
+      signOut,
+      refreshUserData
     }}>
       {children}
     </AuthContext.Provider>

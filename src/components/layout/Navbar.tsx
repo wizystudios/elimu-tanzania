@@ -1,19 +1,44 @@
 
 import { useState } from 'react';
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, Search, User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
 const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const { user, userRole, schoolName, signOut } = useAuth();
+  const { user, userRole, teacherRole, schoolName, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await signOut();
+  };
+
+  const getUserDisplayRole = () => {
+    if (teacherRole) {
+      // Format teacher role for display
+      const roleMap: Record<string, string> = {
+        'normal_teacher': 'Teacher',
+        'headmaster': 'Headmaster',
+        'vice_headmaster': 'Vice Headmaster',
+        'academic_teacher': 'Academic Teacher',
+        'discipline_teacher': 'Discipline Teacher',
+        'sports_teacher': 'Sports Teacher',
+        'environment_teacher': 'Environment Teacher'
+      };
+      return roleMap[teacherRole] || 'Teacher';
+    }
+    
+    // Format user role for display
+    const roleMap: Record<string, string> = {
+      'super_admin': 'Super Admin',
+      'admin': 'School Admin',
+      'teacher': 'Teacher',
+      'student': 'Student',
+      'parent': 'Parent'
+    };
+    return roleMap[userRole || ''] || 'User';
   };
 
   return (
@@ -59,8 +84,14 @@ const Navbar = () => {
               </div>
               <div className="max-h-64 overflow-y-auto">
                 <div className="px-4 py-3 hover:bg-gray-50">
-                  <p className="text-sm text-gray-800">No new notifications</p>
+                  <p className="text-sm text-gray-800">Welcome to {schoolName || 'Elimu Tanzania'}!</p>
+                  <p className="text-xs text-gray-500 mt-1">Just now</p>
                 </div>
+              </div>
+              <div className="px-4 py-2 border-t border-gray-100">
+                <button className="w-full text-center text-sm text-tanzanian-blue hover:underline">
+                  View all notifications
+                </button>
               </div>
             </div>
           )}
@@ -77,7 +108,7 @@ const Navbar = () => {
                 {user?.email?.split('@')[0] || 'User'}
               </span>
               <span className="text-xs text-gray-500 capitalize">
-                {userRole || 'User'}
+                {getUserDisplayRole()}
               </span>
             </div>
             <div className="h-8 w-8 rounded-full bg-tanzanian-blue flex items-center justify-center text-white overflow-hidden">
@@ -93,8 +124,9 @@ const Navbar = () => {
                   setIsProfileOpen(false);
                   navigate('/profile');
                 }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >
+                <User className="h-4 w-4 mr-2" />
                 Your Profile
               </button>
               <button 
@@ -102,8 +134,9 @@ const Navbar = () => {
                   setIsProfileOpen(false);
                   navigate('/settings');
                 }}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >
+                <Settings className="h-4 w-4 mr-2" />
                 Settings
               </button>
               <div className="border-t border-gray-100"></div>
@@ -112,8 +145,9 @@ const Navbar = () => {
                   setIsProfileOpen(false);
                   handleLogout();
                 }}
-                className="block w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
               >
+                <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </button>
             </div>

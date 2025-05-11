@@ -10,9 +10,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { user, schoolId, schoolName } = useAuth();
+  const navigate = useNavigate();
+  const { user, schoolId, schoolName, userRole } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [schoolData, setSchoolData] = useState<any | null>(null);
   const [stats, setStats] = useState({
@@ -24,22 +26,35 @@ const Dashboard = () => {
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
 
   useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
     const fetchDashboardData = async () => {
-      if (!schoolId) return;
+      if (!schoolId) {
+        setIsLoading(false);
+        return;
+      }
       
       setIsLoading(true);
       try {
+        console.log('Fetching school data for ID:', schoolId);
+        
         // Fetch school data
         const { data: school, error: schoolError } = await supabase
           .from('schools')
-          .select(`
-            *,
-            school_locations(*)
-          `)
+          .select('*, school_locations(*)')
           .eq('id', schoolId)
           .maybeSingle();
           
-        if (schoolError) throw schoolError;
+        if (schoolError) {
+          console.error('Error fetching school data:', schoolError);
+          throw schoolError;
+        }
+        
+        console.log('Fetched school data:', school);
         setSchoolData(school);
         
         // Fetch stats
@@ -65,10 +80,26 @@ const Dashboard = () => {
           classes: classesResult.count || 0
         });
         
-        // For now, use mock data for activities and events
-        // These would be replaced with real data from the database as those features are implemented
-        setRecentActivities([
-          {
+        // Fetch recent activities
+        const { data: activities } = await supabase
+          .from('announcements')
+          .select('*, sender:sender_id(first_name, last_name)')
+          .eq('school_id', schoolId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        
+        setRecentActivities(
+          activities ? activities.map(activity => ({
+            id: activity.id,
+            user: {
+              name: activity.sender?.first_name + ' ' + activity.sender?.last_name || 'Admin',
+              avatar: '',
+            },
+            action: activity.title,
+            target: activity.content,
+            timestamp: new Date(activity.created_at).toLocaleString(),
+            status: 'completed' as const,
+          })) : [{
             id: '1',
             user: {
               name: user?.email?.split('@')[0] || 'Admin',
@@ -78,19 +109,35 @@ const Dashboard = () => {
             target: schoolName,
             timestamp: 'recently',
             status: 'completed' as const,
-          }
-        ]);
+          }]
+        );
         
-        setUpcomingEvents([
-          {
+        // Fetch upcoming events
+        const { data: events } = await supabase
+          .from('calendar_events')
+          .select('*')
+          .eq('school_id', schoolId)
+          .gt('start_date', new Date().toISOString())
+          .order('start_date', { ascending: true })
+          .limit(5);
+          
+        setUpcomingEvents(
+          events ? events.map(event => ({
+            id: event.id,
+            title: event.title,
+            date: new Date(event.start_date).toLocaleDateString(),
+            time: new Date(event.start_date).toLocaleTimeString(),
+            location: event.description || 'School',
+            type: event.type || 'event' as const,
+          })) : [{
             id: '1',
             title: 'Complete School Setup',
             date: new Date().toLocaleDateString(),
             time: 'Today',
             location: 'Admin Dashboard',
             type: 'task' as const,
-          }
-        ]);
+          }]
+        );
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -101,7 +148,7 @@ const Dashboard = () => {
     };
     
     fetchDashboardData();
-  }, [schoolId, schoolName, user]);
+  }, [schoolId, schoolName, user, navigate]);
   
   if (isLoading) {
     return (

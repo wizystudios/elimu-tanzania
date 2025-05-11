@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
@@ -19,6 +19,15 @@ import Unauthorized from "./pages/Unauthorized";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
+// Create placeholder components for other routes
+const Classes = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Classes Management</h1><p>This feature is coming soon.</p></div>;
+const Subjects = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Subjects Management</h1><p>This feature is coming soon.</p></div>;
+const Calendar = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Calendar</h1><p>This feature is coming soon.</p></div>;
+const Announcements = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Announcements</h1><p>This feature is coming soon.</p></div>;
+const Messages = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Messaging</h1><p>This feature is coming soon.</p></div>;
+const Settings = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Settings</h1><p>This feature is coming soon.</p></div>;
+const Profile = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">User Profile</h1><p>This feature is coming soon.</p></div>;
+
 const queryClient = new QueryClient();
 
 const AppWithProviders = () => (
@@ -30,37 +39,85 @@ const AppWithProviders = () => (
         <Route path="/register" element={<Register />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         
-        {/* Protected Routes */}
+        {/* Redirect from root to dashboard when authenticated */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         } />
+        
+        {/* School Management Routes */}
         <Route path="/schools" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
             <Schools />
           </ProtectedRoute>
         } />
+        
+        {/* User Management Routes */}
         <Route path="/students" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
             <Students />
           </ProtectedRoute>
         } />
         <Route path="/teachers" element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
             <Teachers />
           </ProtectedRoute>
         } />
         <Route path="/parents" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
             <Parents />
           </ProtectedRoute>
         } />
+        
+        {/* Academic Management Routes */}
+        <Route path="/classes" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Classes />
+          </ProtectedRoute>
+        } />
+        <Route path="/subjects" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Subjects />
+          </ProtectedRoute>
+        } />
         <Route path="/exams" element={
-          <ProtectedRoute allowedRoles={['admin', 'teacher']}>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
             <Exams />
           </ProtectedRoute>
         } />
+        
+        {/* School Operations Routes */}
+        <Route path="/calendar" element={
+          <ProtectedRoute>
+            <Calendar />
+          </ProtectedRoute>
+        } />
+        <Route path="/announcements" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Announcements />
+          </ProtectedRoute>
+        } />
+        <Route path="/messages" element={
+          <ProtectedRoute>
+            <Messages />
+          </ProtectedRoute>
+        } />
+        
+        {/* User Account Routes */}
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        
+        {/* Redirect root to dashboard if authenticated */}
+        <Route path="/" element={<Navigate to="/dashboard" />} />
         
         {/* Catch-All Route */}
         <Route path="*" element={<NotFound />} />
