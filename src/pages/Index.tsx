@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import StatCard from '@/components/dashboard/StatCard';
@@ -11,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 // Update the interface to match what we get from the database
 interface SenderType {
@@ -241,19 +241,43 @@ const Dashboard = () => {
             ) : (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-semibold mb-4">School Information</h3>
-                <p>No school data available.</p>
+                <p className="text-gray-500">No school data available. Please complete your school registration.</p>
+                <div className="mt-4">
+                  <Link to="/settings" className="text-tanzanian-blue hover:underline">Setup your school</Link>
+                </div>
               </div>
             )}
           </div>
           
           {/* Upcoming Events */}
           <div>
-            <UpcomingEvents events={upcomingEvents} />
+            <UpcomingEvents events={upcomingEvents.length > 0 ? upcomingEvents : [
+              {
+                id: '1',
+                title: 'Complete School Setup',
+                date: new Date().toLocaleDateString(),
+                time: 'Today',
+                location: 'Admin Dashboard',
+                type: 'task'
+              }
+            ]} />
           </div>
           
           {/* Recent Activities */}
           <div className="lg:col-span-3">
-            <RecentActivities activities={recentActivities} />
+            <RecentActivities activities={recentActivities.length > 0 ? recentActivities : [
+              {
+                id: '1',
+                user: {
+                  name: user?.email?.split('@')[0] || 'User',
+                  avatar: '',
+                },
+                action: 'logged into the system',
+                target: '',
+                timestamp: new Date().toLocaleString(),
+                status: 'completed'
+              }
+            ]} />
           </div>
         </div>
       </div>
