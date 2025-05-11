@@ -12,9 +12,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
+// Update the interface to match what we get from the database
 interface SenderType {
-  first_name?: string;
-  last_name?: string;
+  first_name?: string | null;
+  last_name?: string | null;
 }
 
 interface AnnouncementType {
@@ -22,7 +23,7 @@ interface AnnouncementType {
   title: string;
   content: string;
   created_at: string;
-  sender: SenderType | null;
+  sender?: SenderType | null;
 }
 
 const Dashboard = () => {
@@ -93,27 +94,48 @@ const Dashboard = () => {
           classes: classesResult.count || 0
         });
         
-        // Fetch recent activities (announcements)
-        const { data: activities } = await supabase
+        // Fetch recent activities (announcements) - fixed query to correctly join with profiles
+        const { data: activities, error: activitiesError } = await supabase
           .from('announcements')
-          .select('id, title, content, created_at, sender:profiles(first_name, last_name)')
+          .select(`
+            id, 
+            title, 
+            content, 
+            created_at,
+            sender_id,
+            profiles!announcements_sender_id_fkey(first_name, last_name)
+          `)
           .eq('school_id', schoolId)
           .order('created_at', { ascending: false })
           .limit(5);
         
-        // Process the announcements data
+        if (activitiesError) {
+          console.error('Error fetching activities:', activitiesError);
+        }
+        
+        console.log('Fetched activities:', activities);
+        
+        // Process the announcements data with better error handling
         setRecentActivities(
-          activities && activities.length > 0 ? activities.map((activity: AnnouncementType) => ({
-            id: activity.id,
-            user: {
-              name: activity.sender ? `${activity.sender.first_name || ''} ${activity.sender.last_name || ''}`.trim() : 'Admin',
-              avatar: '',
-            },
-            action: activity.title,
-            target: activity.content,
-            timestamp: new Date(activity.created_at).toLocaleString(),
-            status: 'completed' as const,
-          })) : [{
+          activities && activities.length > 0 ? activities.map((activity: any) => {
+            // Get sender name from the profiles relation or fallback
+            const senderProfile = activity.profiles || {};
+            const senderName = senderProfile.first_name && senderProfile.last_name
+              ? `${senderProfile.first_name} ${senderProfile.last_name}`.trim()
+              : 'Admin';
+              
+            return {
+              id: activity.id,
+              user: {
+                name: senderName,
+                avatar: '',
+              },
+              action: activity.title,
+              target: activity.content,
+              timestamp: new Date(activity.created_at).toLocaleString(),
+              status: 'completed' as const,
+            };
+          }) : [{
             id: '1',
             user: {
               name: user?.email?.split('@')[0] || 'Admin',
