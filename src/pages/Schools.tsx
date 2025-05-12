@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { schools } from '@/data/mockData';
-import { School } from '@/types';
+import { School, SchoolType } from '@/types';
 import { Search, Plus, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,7 +32,26 @@ const Schools = () => {
         if (error) throw error;
         
         if (data) {
-          setSchoolsList(data);
+          // Transform the data to match our School type
+          const typedSchools: School[] = data.map(school => ({
+            ...school,
+            type: school.type as SchoolType, // Cast string to SchoolType enum
+            // Map other properties for compatibility
+            address: school.school_locations?.[0] ? {
+              region: school.school_locations[0].region,
+              district: school.school_locations[0].district,
+              ward: school.school_locations[0].ward,
+              street: school.school_locations[0].street,
+            } : undefined,
+            contactInfo: {
+              email: school.email,
+              phone: school.phone
+            },
+            registrationNumber: school.registration_number,
+            establishedDate: school.established_date
+          }));
+          
+          setSchoolsList(typedSchools);
         } else {
           // Fallback to mock data only in development
           if (process.env.NODE_ENV === 'development') {
