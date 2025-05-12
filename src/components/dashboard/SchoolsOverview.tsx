@@ -1,13 +1,70 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { School } from '@/types';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SchoolsOverviewProps {
-  schools: School[];
+  schools?: School[];
 }
 
-const SchoolsOverview: React.FC<SchoolsOverviewProps> = ({ schools }) => {
+const SchoolsOverview: React.FC<SchoolsOverviewProps> = ({ schools: propSchools }) => {
+  const [schools, setSchools] = useState<School[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const { userRole, schoolId } = useAuth();
+
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        setLoading(true);
+        
+        // If schools were passed as props, use those instead of fetching
+        if (propSchools && propSchools.length > 0) {
+          setSchools(propSchools);
+          setLoading(false);
+          return;
+        }
+
+        let query = supabase.from('schools').select('*, school_locations(*)');
+        
+        // If user is not a super_admin, filter by their school
+        if (userRole !== 'super_admin' && schoolId) {
+          query = query.eq('id', schoolId);
+        } else {
+          // For super_admin, limit to recent schools for the overview
+          query = query.order('created_at', { ascending: false }).limit(5);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        if (data) {
+          // Transform the data to match School type
+          const typedSchools: School[] = data.map(school => ({
+            id: school.id,
+            name: school.name, 
+            type: school.type as School['type'],
+            registration_number: school.registration_number,
+            school_locations: school.school_locations,
+            email: school.email,
+            phone: school.phone,
+            established_date: school.established_date
+          }));
+          
+          setSchools(typedSchools);
+        }
+      } catch (error) {
+        console.error('Error fetching schools:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSchools();
+  }, [propSchools, userRole, schoolId]);
+
   const getSchoolTypeIcon = (type: School['type']) => {
     switch (type) {
       case 'kindergarten':
@@ -62,7 +119,11 @@ const SchoolsOverview: React.FC<SchoolsOverviewProps> = ({ schools }) => {
         <h3 className="text-lg font-semibold">Schools Overview</h3>
         <Link to="/schools" className="text-sm text-tanzanian-blue hover:underline">View all</Link>
       </div>
-      {schools.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tanzanian-blue"></div>
+        </div>
+      ) : schools.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-500">No schools data available.</p>
         </div>
