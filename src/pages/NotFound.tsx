@@ -5,6 +5,48 @@ import { ArrowLeft } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
+  const currentPath = location.pathname;
+
+  // Extract the main section from the path (e.g., /teachers/add → teachers)
+  const mainSection = currentPath.split('/')[1];
+  
+  // Build a suggestion for where to go based on the path
+  const getSuggestion = () => {
+    switch (mainSection) {
+      case 'teachers':
+        return {
+          text: "You might be looking for the Teachers page.",
+          link: "/teachers"
+        };
+      case 'students':
+        return {
+          text: "You might be looking for the Students page.",
+          link: "/students"
+        };
+      case 'classes':
+        return {
+          text: "You might be looking for the Classes page.",
+          link: "/classes"
+        };
+      case 'parents':
+        return {
+          text: "You might be looking for the Parents page.",
+          link: "/parents"
+        };
+      case 'subjects':
+        return {
+          text: "You might be looking for the Subjects page.",
+          link: "/subjects"
+        };
+      default:
+        return {
+          text: "Return to the main dashboard to navigate to available pages.",
+          link: "/dashboard"
+        };
+    }
+  };
+
+  const suggestion = getSuggestion();
 
   useEffect(() => {
     console.error(
@@ -25,21 +67,24 @@ const NotFound = () => {
           <h1 className="text-4xl font-bold mb-2 text-gray-800">404</h1>
           <p className="text-xl text-gray-600 mb-2">Page Not Found</p>
           <p className="text-gray-500 mb-6">
-            The page you're looking for doesn't exist or is still under development.
+            The page "{currentPath}" doesn't exist yet or is still under development.
           </p>
+          <div className="bg-yellow-50 p-4 rounded-md text-yellow-800 mb-6 w-full">
+            <p className="text-sm">{suggestion.text}</p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
             <Link 
-              to="/dashboard" 
+              to={suggestion.link} 
               className="flex items-center justify-center gap-2 bg-tanzanian-blue text-white py-2 px-6 rounded-md hover:bg-tanzanian-blue/90 transition-colors w-full"
             >
               <ArrowLeft className="h-4 w-4" />
-              Return to Dashboard
+              Go to {mainSection || 'Dashboard'}
             </Link>
             <Link 
-              to="/" 
+              to="/dashboard" 
               className="flex items-center justify-center gap-2 border border-tanzanian-blue text-tanzanian-blue py-2 px-6 rounded-md hover:bg-tanzanian-blue/10 transition-colors w-full"
             >
-              Go to Home
+              Return to Dashboard
             </Link>
           </div>
         </div>

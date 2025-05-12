@@ -13,6 +13,7 @@ import Schools from "./pages/Schools";
 import RegisterSchool from "./pages/RegisterSchool";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
+import AddTeacher from "./pages/AddTeacher";
 import Parents from "./pages/Parents";
 import Exams from "./pages/Exams";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,11 @@ const Settings = () => <div className="p-6"><h1 className="text-2xl font-bold mb
 const Profile = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">User Profile</h1><p>This feature is coming soon.</p></div>;
 const SchoolDetails = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>;
 const EditSchool = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit School</h1><p>This feature is coming soon.</p></div>;
+const AssignTeachers = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Assign Teachers to Subjects</h1><p>This feature is coming soon.</p></div>;
+const AddStudent = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Add Student</h1><p>This feature is coming soon.</p></div>;
+const StudentAttendance = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Student Attendance</h1><p>This feature is coming soon.</p></div>;
+const AddParent = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Add Parent</h1><p>This feature is coming soon.</p></div>;
+const LinkParents = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Link Parents to Students</h1><p>This feature is coming soon.</p></div>;
 
 const queryClient = new QueryClient();
 
@@ -83,14 +89,44 @@ const AppWithProviders = () => (
             <Students />
           </ProtectedRoute>
         } />
+        <Route path="/students/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddStudent />
+          </ProtectedRoute>
+        } />
+        <Route path="/students/attendance" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
+            <StudentAttendance />
+          </ProtectedRoute>
+        } />
         <Route path="/teachers" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
             <Teachers />
           </ProtectedRoute>
         } />
+        <Route path="/teachers/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <AddTeacher />
+          </ProtectedRoute>
+        } />
+        <Route path="/teachers/assign" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <AssignTeachers />
+          </ProtectedRoute>
+        } />
         <Route path="/parents" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
             <Parents />
+          </ProtectedRoute>
+        } />
+        <Route path="/parents/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddParent />
+          </ProtectedRoute>
+        } />
+        <Route path="/parents/link" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <LinkParents />
           </ProtectedRoute>
         } />
         
