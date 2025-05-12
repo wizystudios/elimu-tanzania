@@ -21,9 +21,10 @@ import Unauthorized from "./pages/Unauthorized";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Users from "./pages/Users";
+import Classes from "./pages/Classes";
+import CreateClass from "./pages/CreateClass";
 
 // Create placeholder components for other routes
-const Classes = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Classes Management</h1><p>This feature is coming soon.</p></div>;
 const Subjects = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Subjects Management</h1><p>This feature is coming soon.</p></div>;
 const Calendar = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Calendar</h1><p>This feature is coming soon.</p></div>;
 const Announcements = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Announcements</h1><p>This feature is coming soon.</p></div>;
@@ -134,6 +135,11 @@ const AppWithProviders = () => (
         <Route path="/classes" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
             <Classes />
+          </ProtectedRoute>
+        } />
+        <Route path="/classes/create" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <CreateClass />
           </ProtectedRoute>
         } />
         <Route path="/subjects" element={
