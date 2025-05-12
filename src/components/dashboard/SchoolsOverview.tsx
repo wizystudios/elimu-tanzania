@@ -41,16 +41,34 @@ const SchoolsOverview: React.FC<SchoolsOverviewProps> = ({ schools: propSchools 
         if (error) throw error;
         
         if (data) {
-          // Transform the data to match School type
+          // Transform the data to match School type completely
           const typedSchools: School[] = data.map(school => ({
             id: school.id,
             name: school.name, 
             type: school.type as School['type'],
             registration_number: school.registration_number,
+            subdomain: school.subdomain,
+            logo: school.logo,
+            description: school.description || '',
+            created_at: school.created_at,
+            updated_at: school.updated_at,
             school_locations: school.school_locations,
             email: school.email,
             phone: school.phone,
-            established_date: school.established_date
+            established_date: school.established_date,
+            // Add these properties for compatibility with existing code
+            registrationNumber: school.registration_number,
+            establishedDate: school.established_date,
+            address: school.school_locations && school.school_locations[0] ? {
+              region: school.school_locations[0].region,
+              district: school.school_locations[0].district,
+              ward: school.school_locations[0].ward,
+              street: school.school_locations[0].street
+            } : undefined,
+            contactInfo: {
+              email: school.email,
+              phone: school.phone
+            }
           }));
           
           setSchools(typedSchools);
