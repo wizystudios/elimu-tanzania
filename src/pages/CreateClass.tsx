@@ -8,18 +8,57 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
-import { ChevronLeft, Save } from "lucide-react";
+import { ChevronLeft, Save, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from '@tanstack/react-query';
+
+// Interface for teacher data
+interface Teacher {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
 
 const CreateClass = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    grade: '',
+    education_level: '',
     capacity: '',
     description: '',
-    classTeacher: '',
-    academicYear: new Date().getFullYear().toString(),
+    homeroom_teacher_id: '',
+    academic_year: new Date().getFullYear().toString(),
+  });
+
+  // Fetch teachers for the dropdown
+  const { data: teachers, isLoading: loadingTeachers } = useQuery({
+    queryKey: ['teachers'],
+    queryFn: async () => {
+      // We're getting teachers from the user_roles and profiles tables
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select(`
+          user_id,
+          profiles:user_id (
+            id,
+            first_name,
+            last_name
+          )
+        `)
+        .eq('role', 'teacher');
+
+      if (error) throw error;
+      
+      // Return teachers with their profile information
+      return data
+        .filter(item => item.profiles)
+        .map(item => ({
+          id: item.user_id,
+          first_name: item.profiles.first_name,
+          last_name: item.profiles.last_name
+        }));
+    }
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -42,8 +81,25 @@ const CreateClass = () => {
     setIsLoading(true);
     
     try {
-      // In a real app, this would be an API call to create the class
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      // Get school ID from local storage or context
+      // For now, we'll use a placeholder
+      const schoolId = "1"; // Replace with actual school ID logic
+      
+      // Insert class into Supabase
+      const { data, error } = await supabase
+        .from('classes')
+        .insert({
+          name: formData.name,
+          education_level: formData.education_level,
+          academic_year: formData.academic_year,
+          homeroom_teacher_id: formData.homeroom_teacher_id || null,
+          school_id: schoolId,
+          // Note: capacity is not part of our table schema,
+          // but we're collecting it in the UI for future use
+        })
+        .select();
+      
+      if (error) throw error;
       
       toast({
         title: "Class created",
@@ -52,6 +108,7 @@ const CreateClass = () => {
       
       navigate('/classes');
     } catch (error) {
+      console.error('Error creating class:', error);
       toast({
         title: "Error",
         description: "Failed to create class. Please try again.",
@@ -61,6 +118,24 @@ const CreateClass = () => {
       setIsLoading(false);
     }
   };
+
+  // Map DB education levels to display text
+  const educationLevels = [
+    { value: 'chekechea', label: 'Pre-School (Chekechea)' },
+    { value: 'darasa1', label: 'Standard 1' },
+    { value: 'darasa2', label: 'Standard 2' },
+    { value: 'darasa3', label: 'Standard 3' },
+    { value: 'darasa4', label: 'Standard 4' },
+    { value: 'darasa5', label: 'Standard 5' },
+    { value: 'darasa6', label: 'Standard 6' },
+    { value: 'darasa7', label: 'Standard 7' },
+    { value: 'form1', label: 'Form 1' },
+    { value: 'form2', label: 'Form 2' },
+    { value: 'form3', label: 'Form 3' },
+    { value: 'form4', label: 'Form 4' },
+    { value: 'form5', label: 'Form 5' },
+    { value: 'form6', label: 'Form 6' },
+  ];
 
   return (
     <div className="container p-6 mx-auto">
@@ -92,29 +167,21 @@ const CreateClass = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="grade">Grade Level*</Label>
+                <Label htmlFor="education_level">Grade Level*</Label>
                 <Select 
                   required
-                  onValueChange={(value) => handleSelectChange('grade', value)} 
-                  defaultValue={formData.grade}
+                  onValueChange={(value) => handleSelectChange('education_level', value)} 
+                  defaultValue={formData.education_level}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select grade" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Standard 1">Standard 1</SelectItem>
-                    <SelectItem value="Standard 2">Standard 2</SelectItem>
-                    <SelectItem value="Standard 3">Standard 3</SelectItem>
-                    <SelectItem value="Standard 4">Standard 4</SelectItem>
-                    <SelectItem value="Standard 5">Standard 5</SelectItem>
-                    <SelectItem value="Standard 6">Standard 6</SelectItem>
-                    <SelectItem value="Standard 7">Standard 7</SelectItem>
-                    <SelectItem value="Form 1">Form 1</SelectItem>
-                    <SelectItem value="Form 2">Form 2</SelectItem>
-                    <SelectItem value="Form 3">Form 3</SelectItem>
-                    <SelectItem value="Form 4">Form 4</SelectItem>
-                    <SelectItem value="Form 5">Form 5</SelectItem>
-                    <SelectItem value="Form 6">Form 6</SelectItem>
+                    {educationLevels.map((level) => (
+                      <SelectItem key={level.value} value={level.value}>
+                        {level.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -137,30 +204,31 @@ const CreateClass = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="classTeacher">Class Teacher</Label>
+                <Label htmlFor="homeroom_teacher_id">Class Teacher</Label>
                 <Select 
-                  onValueChange={(value) => handleSelectChange('classTeacher', value)} 
-                  defaultValue={formData.classTeacher}
+                  onValueChange={(value) => handleSelectChange('homeroom_teacher_id', value)} 
+                  defaultValue={formData.homeroom_teacher_id}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Assign a teacher" />
+                    <SelectValue placeholder={loadingTeachers ? "Loading teachers..." : "Assign a teacher"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="John Doe">John Doe</SelectItem>
-                    <SelectItem value="Jane Smith">Jane Smith</SelectItem>
-                    <SelectItem value="Emmanuel Mwenda">Emmanuel Mwenda</SelectItem>
-                    <SelectItem value="Grace Makonjo">Grace Makonjo</SelectItem>
+                    {teachers?.map((teacher: Teacher) => (
+                      <SelectItem key={teacher.id} value={teacher.id}>
+                        {teacher.first_name} {teacher.last_name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="academicYear">Academic Year*</Label>
+              <Label htmlFor="academic_year">Academic Year*</Label>
               <Select 
                 required
-                onValueChange={(value) => handleSelectChange('academicYear', value)} 
-                defaultValue={formData.academicYear}
+                onValueChange={(value) => handleSelectChange('academic_year', value)} 
+                defaultValue={formData.academic_year}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select academic year" />
@@ -188,7 +256,10 @@ const CreateClass = () => {
             <div className="pt-4 flex justify-end">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
-                  "Creating..."
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
