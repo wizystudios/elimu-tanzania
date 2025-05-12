@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Index";
 import Schools from "./pages/Schools";
+import RegisterSchool from "./pages/RegisterSchool";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Parents from "./pages/Parents";
@@ -28,6 +29,8 @@ const Announcements = () => <div className="p-6"><h1 className="text-2xl font-bo
 const Messages = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Messaging</h1><p>This feature is coming soon.</p></div>;
 const Settings = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Settings</h1><p>This feature is coming soon.</p></div>;
 const Profile = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">User Profile</h1><p>This feature is coming soon.</p></div>;
+const SchoolDetails = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>;
+const EditSchool = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit School</h1><p>This feature is coming soon.</p></div>;
 
 const queryClient = new QueryClient();
 
@@ -51,6 +54,21 @@ const AppWithProviders = () => (
         <Route path="/schools" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
             <Schools />
+          </ProtectedRoute>
+        } />
+        <Route path="/register-school" element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <RegisterSchool />
+          </ProtectedRoute>
+        } />
+        <Route path="/schools/:id" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <SchoolDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="/schools/:id/edit" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+            <EditSchool />
           </ProtectedRoute>
         } />
         

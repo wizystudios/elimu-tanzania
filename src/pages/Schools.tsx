@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
-import { schools } from '@/data/mockData';
 import { School, SchoolType } from '@/types';
 import { Search, Plus, Filter } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Schools = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,6 +14,7 @@ const Schools = () => {
   const [schoolsList, setSchoolsList] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const { user, userRole, schoolId } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchSchools = async () => {
@@ -53,28 +54,13 @@ const Schools = () => {
           
           setSchoolsList(typedSchools);
         } else {
-          // Fallback to mock data only in development
-          if (process.env.NODE_ENV === 'development') {
-            // Filter mock data if user is not super_admin
-            const filteredMockSchools = userRole === 'super_admin' 
-              ? schools 
-              : schools.filter(school => school.id === schoolId);
-            
-            setSchoolsList(filteredMockSchools);
-          } else {
-            setSchoolsList([]);
-          }
+          setSchoolsList([]);
+          toast.error('No schools data available');
         }
       } catch (error) {
         console.error('Error fetching schools:', error);
         toast.error('Failed to load schools data');
-        
-        // Fallback to filtered mock data
-        const filteredMockSchools = userRole === 'super_admin' 
-          ? schools 
-          : schools.filter(school => school.id === schoolId);
-        
-        setSchoolsList(filteredMockSchools);
+        setSchoolsList([]);
       } finally {
         setLoading(false);
       }
@@ -115,6 +101,38 @@ const Schools = () => {
     return matchesSearch && matchesType;
   });
 
+  const handleRegisterSchool = () => {
+    navigate('/register-school');
+  };
+
+  const handleViewSchool = (id: string) => {
+    navigate(`/schools/${id}`);
+  };
+
+  const handleEditSchool = (id: string) => {
+    navigate(`/schools/${id}/edit`);
+  };
+
+  const handleDeleteSchool = async (id: string) => {
+    if (confirm('Are you sure you want to delete this school?')) {
+      try {
+        const { error } = await supabase
+          .from('schools')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        
+        toast.success('School deleted successfully');
+        // Refresh the schools list
+        setSchoolsList(prev => prev.filter(school => school.id !== id));
+      } catch (error) {
+        console.error('Error deleting school:', error);
+        toast.error('Failed to delete school');
+      }
+    }
+  };
+
   return (
     <MainLayout>
       <div>
@@ -123,10 +141,15 @@ const Schools = () => {
             <h1 className="text-2xl font-bold">Schools</h1>
             <p className="text-gray-600">Manage all registered schools</p>
           </div>
-          <button className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
-            <Plus className="h-5 w-5" />
-            <span>Register School</span>
-          </button>
+          {userRole === 'super_admin' && (
+            <button 
+              onClick={handleRegisterSchool}
+              className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Register School</span>
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -244,9 +267,30 @@ const Schools = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</button>
-                        <button className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</button>
-                        <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
+                        <button 
+                          className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4"
+                          onClick={() => handleViewSchool(school.id)}
+                        >
+                          View
+                        </button>
+                        {(userRole === 'super_admin' || (userRole === 'admin' && school.id === schoolId)) && (
+                          <>
+                            <button 
+                              className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4"
+                              onClick={() => handleEditSchool(school.id)}
+                            >
+                              Edit
+                            </button>
+                            {userRole === 'super_admin' && (
+                              <button 
+                                className="text-tanzanian-red hover:text-tanzanian-red/80"
+                                onClick={() => handleDeleteSchool(school.id)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

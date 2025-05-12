@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import StatCard from '@/components/dashboard/StatCard';
@@ -47,7 +48,7 @@ const Dashboard = () => {
     }
 
     const fetchDashboardData = async () => {
-      if (!schoolId) {
+      if (!schoolId && userRole !== 'super_admin') {
         setIsLoading(false);
         return;
       }
@@ -56,135 +57,174 @@ const Dashboard = () => {
       try {
         console.log('Fetching school data for ID:', schoolId);
         
-        // Fetch school data
-        const { data: school, error: schoolError } = await supabase
-          .from('schools')
-          .select('*, school_locations(*)')
-          .eq('id', schoolId)
-          .maybeSingle();
+        // For super_admin, fetch all schools
+        if (userRole === 'super_admin') {
+          const { data: schools, error: schoolsError } = await supabase
+            .from('schools')
+            .select('*, school_locations(*)');
+            
+          if (schoolsError) throw schoolsError;
           
-        if (schoolError) {
-          console.error('Error fetching school data:', schoolError);
-          throw schoolError;
-        }
-        
-        console.log('Fetched school data:', school);
-        setSchoolData(school);
-        
-        // Fetch stats
-        const [studentsResult, teachersResult, classesResult] = await Promise.all([
-          supabase
-            .from('students')
-            .select('id', { count: 'exact' })
-            .eq('school_id', schoolId),
-          supabase
-            .from('user_roles')
-            .select('id', { count: 'exact' })
-            .eq('school_id', schoolId)
-            .eq('role', 'teacher'),
-          supabase
-            .from('classes')
-            .select('id', { count: 'exact' })
-            .eq('school_id', schoolId)
-        ]);
-        
-        setStats({
-          students: studentsResult.count || 0,
-          teachers: teachersResult.count || 0,
-          classes: classesResult.count || 0
-        });
-        
-        // Fetch recent activities (announcements) - fixed query to correctly join with profiles
-        const { data: activities, error: activitiesError } = await supabase
-          .from('announcements')
-          .select(`
-            id, 
-            title, 
-            content, 
-            created_at,
-            sender_id,
-            profiles!announcements_sender_id_fkey(first_name, last_name)
-          `)
-          .eq('school_id', schoolId)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (activitiesError) {
-          console.error('Error fetching activities:', activitiesError);
-        }
-        
-        console.log('Fetched activities:', activities);
-        
-        // Process the announcements data with better error handling
-        setRecentActivities(
-          activities && activities.length > 0 ? activities.map((activity: any) => {
-            // Get sender name from the profiles relation or fallback
-            const senderProfile = activity.profiles || {};
-            const senderName = senderProfile.first_name && senderProfile.last_name
-              ? `${senderProfile.first_name} ${senderProfile.last_name}`.trim()
-              : 'Admin';
+          setSchoolData(schools);
+          
+          // Get total counts for super_admin
+          const [studentsResult, teachersResult, classesResult] = await Promise.all([
+            supabase.from('students').select('id', { count: 'exact' }),
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'teacher'),
+            supabase.from('classes').select('id', { count: 'exact' })
+          ]);
+          
+          setStats({
+            students: studentsResult.count || 0,
+            teachers: teachersResult.count || 0,
+            classes: classesResult.count || 0
+          });
+          
+          // Fetch all recent activities for super_admin
+          const { data: allActivities } = await supabase
+            .from('announcements')
+            .select(`
+              id, 
+              title, 
+              content, 
+              created_at,
+              sender_id,
+              profiles!announcements_sender_id_fkey(first_name, last_name)
+            `)
+            .order('created_at', { ascending: false })
+            .limit(5);
+            
+          processActivities(allActivities || []);
+          
+          // Fetch all upcoming events for super_admin
+          const { data: allEvents } = await supabase
+            .from('calendar_events')
+            .select('*')
+            .gt('start_date', new Date().toISOString())
+            .order('start_date', { ascending: true })
+            .limit(5);
+            
+          processEvents(allEvents || []);
+          
+        } else {
+          // For non-super_admin users, fetch specific school data
+          const { data: school, error: schoolError } = await supabase
+            .from('schools')
+            .select('*, school_locations(*)')
+            .eq('id', schoolId)
+            .maybeSingle();
+            
+          if (schoolError) throw schoolError;
+          
+          setSchoolData(school ? [school] : []);
+          
+          if (school) {
+            // Fetch stats for specific school
+            const [studentsResult, teachersResult, classesResult] = await Promise.all([
+              supabase
+                .from('students')
+                .select('id', { count: 'exact' })
+                .eq('school_id', schoolId),
+              supabase
+                .from('user_roles')
+                .select('id', { count: 'exact' })
+                .eq('school_id', schoolId)
+                .eq('role', 'teacher'),
+              supabase
+                .from('classes')
+                .select('id', { count: 'exact' })
+                .eq('school_id', schoolId)
+            ]);
+            
+            setStats({
+              students: studentsResult.count || 0,
+              teachers: teachersResult.count || 0,
+              classes: classesResult.count || 0
+            });
+            
+            // Fetch recent activities for specific school
+            const { data: activities } = await supabase
+              .from('announcements')
+              .select(`
+                id, 
+                title, 
+                content, 
+                created_at,
+                sender_id,
+                profiles!announcements_sender_id_fkey(first_name, last_name)
+              `)
+              .eq('school_id', schoolId)
+              .order('created_at', { ascending: false })
+              .limit(5);
               
-            return {
-              id: activity.id,
-              user: {
-                name: senderName,
-                avatar: '',
-              },
-              action: activity.title,
-              target: activity.content,
-              timestamp: new Date(activity.created_at).toLocaleString(),
-              status: 'completed' as const,
-            };
-          }) : [{
-            id: '1',
-            user: {
-              name: user?.email?.split('@')[0] || 'Admin',
-              avatar: '',
-            },
-            action: 'registered the school',
-            target: schoolName,
-            timestamp: 'recently',
-            status: 'completed' as const,
-          }]
-        );
-        
-        // Fetch upcoming events
-        const { data: events } = await supabase
-          .from('calendar_events')
-          .select('*')
-          .eq('school_id', schoolId)
-          .gt('start_date', new Date().toISOString())
-          .order('start_date', { ascending: true })
-          .limit(5);
-          
-        setUpcomingEvents(
-          events && events.length > 0 ? events.map(event => ({
-            id: event.id,
-            title: event.title,
-            date: new Date(event.start_date).toLocaleDateString(),
-            time: new Date(event.start_date).toLocaleTimeString(),
-            location: event.description || 'School',
-            type: event.type || 'event' as const,
-          })) : [{
-            id: '1',
-            title: 'Complete School Setup',
-            date: new Date().toLocaleDateString(),
-            time: 'Today',
-            location: 'Admin Dashboard',
-            type: 'task' as const,
-          }]
-        );
-        
+            processActivities(activities || []);
+            
+            // Fetch upcoming events for specific school
+            const { data: events } = await supabase
+              .from('calendar_events')
+              .select('*')
+              .eq('school_id', schoolId)
+              .gt('start_date', new Date().toISOString())
+              .order('start_date', { ascending: true })
+              .limit(5);
+              
+            processEvents(events || []);
+          }
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         toast.error('Hitilafu imetokea wakati wa kupakua data.');
+        
+        // Reset data on error
+        setSchoolData([]);
+        setRecentActivities([]);
+        setUpcomingEvents([]);
       } finally {
         setIsLoading(false);
       }
     };
     
+    // Helper function to process activities data
+    const processActivities = (activities: any[]) => {
+      setRecentActivities(
+        activities.length > 0 ? activities.map((activity: any) => {
+          // Get sender name from the profiles relation or fallback
+          const senderProfile = activity.profiles || {};
+          const senderName = senderProfile.first_name && senderProfile.last_name
+            ? `${senderProfile.first_name} ${senderProfile.last_name}`.trim()
+            : 'Admin';
+            
+          return {
+            id: activity.id,
+            user: {
+              name: senderName,
+              avatar: '',
+            },
+            action: activity.title,
+            target: activity.content,
+            timestamp: new Date(activity.created_at).toLocaleString(),
+            status: 'completed' as const,
+          };
+        }) : []
+      );
+    };
+    
+    // Helper function to process events data
+    const processEvents = (events: any[]) => {
+      setUpcomingEvents(
+        events.length > 0 ? events.map(event => ({
+          id: event.id,
+          title: event.title,
+          date: new Date(event.start_date).toLocaleDateString(),
+          time: new Date(event.start_date).toLocaleTimeString(),
+          location: event.description || 'School',
+          type: event.type || 'event' as const,
+        })) : []
+      );
+    };
+    
     fetchDashboardData();
-  }, [schoolId, schoolName, user, navigate]);
+  }, [schoolId, schoolName, user, navigate, userRole]);
   
   if (isLoading) {
     return (
@@ -236,8 +276,8 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* School Overview */}
           <div className="lg:col-span-2">
-            {schoolData ? (
-              <SchoolsOverview schools={[schoolData]} />
+            {schoolData && schoolData.length > 0 ? (
+              <SchoolsOverview schools={schoolData} />
             ) : (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h3 className="text-lg font-semibold mb-4">School Information</h3>
@@ -251,33 +291,12 @@ const Dashboard = () => {
           
           {/* Upcoming Events */}
           <div>
-            <UpcomingEvents events={upcomingEvents.length > 0 ? upcomingEvents : [
-              {
-                id: '1',
-                title: 'Complete School Setup',
-                date: new Date().toLocaleDateString(),
-                time: 'Today',
-                location: 'Admin Dashboard',
-                type: 'task'
-              }
-            ]} />
+            <UpcomingEvents events={upcomingEvents.length > 0 ? upcomingEvents : []} />
           </div>
           
           {/* Recent Activities */}
           <div className="lg:col-span-3">
-            <RecentActivities activities={recentActivities.length > 0 ? recentActivities : [
-              {
-                id: '1',
-                user: {
-                  name: user?.email?.split('@')[0] || 'User',
-                  avatar: '',
-                },
-                action: 'logged into the system',
-                target: '',
-                timestamp: new Date().toLocaleString(),
-                status: 'completed'
-              }
-            ]} />
+            <RecentActivities activities={recentActivities.length > 0 ? recentActivities : []} />
           </div>
         </div>
       </div>

@@ -62,37 +62,45 @@ const SchoolsOverview: React.FC<SchoolsOverviewProps> = ({ schools }) => {
         <h3 className="text-lg font-semibold">Schools Overview</h3>
         <Link to="/schools" className="text-sm text-tanzanian-blue hover:underline">View all</Link>
       </div>
-      <div className="space-y-4 max-h-96 overflow-y-auto">
-        {schools.map((school) => (
-          <div key={school.id} className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg border border-gray-100">
-            {getSchoolTypeIcon(school.type)}
-            <div className="flex-1">
-              <h4 className="font-medium text-gray-800">{school.name}</h4>
-              <p className="text-xs text-gray-500">{getSchoolType(school.type)}</p>
-              <div className="flex items-center space-x-3 text-xs text-gray-500 mt-2">
-                {school.school_locations && school.school_locations[0] && (
-                  <span className="flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {school.school_locations[0].region}, {school.school_locations[0].district}
-                  </span>
-                )}
-                <span className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  {school.registration_number}
-                </span>
+      {schools.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No schools data available.</p>
+        </div>
+      ) : (
+        <div className="space-y-4 max-h-96 overflow-y-auto">
+          {schools.map((school) => (
+            <div key={school.id} className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg border border-gray-100">
+              {getSchoolTypeIcon(school.type)}
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-800">{school.name}</h4>
+                <p className="text-xs text-gray-500">{getSchoolType(school.type)}</p>
+                <div className="flex items-center space-x-3 text-xs text-gray-500 mt-2">
+                  {school.school_locations && school.school_locations[0] && (
+                    <span className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {school.school_locations[0].region}, {school.school_locations[0].district}
+                    </span>
+                  )}
+                  {school.registration_number && (
+                    <span className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      {school.registration_number}
+                    </span>
+                  )}
+                </div>
               </div>
+              <Link to={`/schools/${school.id}`} className="px-3 py-1 text-xs font-medium text-tanzanian-blue border border-tanzanian-blue rounded-md hover:bg-tanzanian-blue hover:text-white transition-colors">
+                Details
+              </Link>
             </div>
-            <Link to={`/schools/${school.id}`} className="px-3 py-1 text-xs font-medium text-tanzanian-blue border border-tanzanian-blue rounded-md hover:bg-tanzanian-blue hover:text-white transition-colors">
-              Details
-            </Link>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
