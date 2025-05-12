@@ -63,7 +63,23 @@ const AddTeacher = () => {
 
       if (roleError) throw roleError;
 
-      // 3. Create teacher profile
+      // 3. Create profile for the teacher
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          school_id: schoolId,
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) throw profileError;
+
+      // 4. Store additional teacher metadata in a custom metadata field
+      // Since we don't have a teachers table yet, we'll use the profile and user_roles tables
+      const staffId = `TCH/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
+      
       const qualificationsArray = formData.qualifications
         .split(',')
         .map(item => item.trim())
@@ -74,23 +90,20 @@ const AddTeacher = () => {
         .map(item => item.trim())
         .filter(item => item.length > 0);
 
-      const staffId = `TCH/${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
-      
-      const { error: teacherError } = await supabase
-        .from('teachers')
-        .insert({
-          user_id: authData.user.id,
+      // Since we don't have a dedicated teachers table yet,
+      // we'll store this information as metadata
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
           staff_id: staffId,
-          teacher_role: 'normal_teacher',
           gender: formData.gender,
           date_of_birth: formData.dateOfBirth,
           hire_date: new Date().toISOString().split('T')[0],
           qualifications: qualificationsArray,
           subjects: subjectsArray,
-          school_id: schoolId,
-        });
+        }
+      });
 
-      if (teacherError) throw teacherError;
+      if (metadataError) throw metadataError;
 
       toast.success('Teacher added successfully!');
       navigate('/teachers');
