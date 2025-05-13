@@ -1,17 +1,14 @@
 
 import React, { useState } from 'react';
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, subMonths, addMonths } from 'date-fns';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addDays, isSameDay, isToday, addMonths, subMonths } from 'date-fns';
+import { ChevronLeft, ChevronRight, Calendar, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Exam } from '@/types';
 
-interface ExamScheduleCalendarProps {
+export interface ExamScheduleCalendarProps {
   exams: Exam[];
   isLoading?: boolean; // Added isLoading prop as optional
 }
@@ -28,170 +25,118 @@ export const ExamScheduleCalendar: React.FC<ExamScheduleCalendarProps> = ({ exam
   const endDate = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: startDate, end: endDate });
   
-  // Expand to show previous/next month days to fill calendar grid
-  const firstDayOfMonth = startDate.getDay();
-  const lastDayOfMonth = endDate.getDay();
+  // Add empty slots for days before the start of the month
+  const startDay = startDate.getDay();
+  const daysOffset = Array(startDay).fill(null);
   
-  // Add days from previous month
-  const prevMonthDays = Array.from({ length: firstDayOfMonth }, (_, i) => {
-    return addDays(startDate, -(firstDayOfMonth - i));
-  });
-  
-  // Add days from next month
-  const nextMonthDays = Array.from({ length: 6 - lastDayOfMonth }, (_, i) => {
-    return addDays(endDate, i + 1);
-  });
-  
-  // All calendar days to display
-  const allCalendarDays = [...prevMonthDays, ...days, ...nextMonthDays];
+  const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
+  const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   
   // Group exams by date
-  const examsByDate = exams.reduce<Record<string, Exam[]>>((acc, exam) => {
-    const dateKey = format(new Date(exam.date), 'yyyy-MM-dd');
-    if (!acc[dateKey]) {
-      acc[dateKey] = [];
+  const examsByDate = exams.reduce((acc: { [key: string]: Exam[] }, exam) => {
+    const date = format(new Date(exam.date), 'yyyy-MM-dd');
+    if (!acc[date]) {
+      acc[date] = [];
     }
-    acc[dateKey].push(exam);
+    acc[date].push(exam);
     return acc;
   }, {});
   
-  const goToPreviousMonth = () => setCurrentDate(subMonths(currentDate, 1));
-  const goToNextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-  
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium flex items-center">
-          <CalendarIcon className="h-5 w-5 mr-2" />
-          {format(currentDate, 'MMMM yyyy')}
-        </h3>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date())}>
-            Today
-          </Button>
-          <Button variant="outline" size="icon" onClick={goToNextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-          <div key={day} className="text-center text-sm font-medium py-2">
-            {day}
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold">Exam Schedule</h2>
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" size="icon" onClick={prevMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-lg font-medium">
+              {format(currentDate, 'MMMM yyyy')}
+            </span>
+            <Button variant="outline" size="icon" onClick={nextMonth}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-        ))}
-      </div>
-      
-      <div className="grid grid-cols-7 gap-1">
-        {allCalendarDays.map((day, index) => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          const dayExams = examsByDate[dateKey] || [];
-          const isToday = isSameDay(day, new Date());
-          const isCurrentMonth = isSameMonth(day, currentDate);
-          
-          return (
-            <div
-              key={index}
-              className={`min-h-24 border rounded-md p-1 ${
-                isCurrentMonth ? 'bg-card' : 'bg-muted/30'
-              } ${isToday ? 'ring-2 ring-tanzanian-blue' : ''}`}
-            >
-              <div className="text-right text-xs font-medium p-1">
-                {format(day, 'd')}
-              </div>
-              
-              <div className="space-y-1 mt-1">
-                {dayExams.length > 0 ? (
-                  dayExams.length <= 2 ? (
-                    dayExams.map((exam) => (
-                      <HoverCard key={exam.id} openDelay={200}>
-                        <HoverCardTrigger asChild>
-                          <div className="text-xs px-1.5 py-1 bg-tanzanian-blue/10 text-tanzanian-blue rounded cursor-pointer truncate">
-                            {exam.title}
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80">
-                          <div className="space-y-2">
-                            <h4 className="font-medium">{exam.title}</h4>
-                            <div className="text-sm">
-                              <div className="flex items-center gap-2">
-                                <Badge>{exam.subject}</Badge>
-                                <span className="text-muted-foreground">
-                                  {format(new Date(exam.date), 'hh:mm a')}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {exam.duration} mins
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    ))
-                  ) : (
-                    <>
-                      <HoverCard openDelay={200}>
-                        <HoverCardTrigger asChild>
-                          <div className="text-xs px-1.5 py-1 bg-tanzanian-blue/10 text-tanzanian-blue rounded cursor-pointer">
-                            {dayExams[0].title}
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80">
-                          <div className="space-y-2">
-                            <h4 className="font-medium">{dayExams[0].title}</h4>
-                            <div className="text-sm">
-                              <div className="flex items-center gap-2">
-                                <Badge>{dayExams[0].subject}</Badge>
-                                <span className="text-muted-foreground">
-                                  {format(new Date(dayExams[0].date), 'hh:mm a')}
-                                </span>
-                                <span className="text-muted-foreground">
-                                  {dayExams[0].duration} mins
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                      
-                      <HoverCard openDelay={200}>
-                        <HoverCardTrigger asChild>
-                          <div className="text-xs px-1.5 py-1 bg-gray-100 text-gray-700 rounded cursor-pointer">
-                            +{dayExams.length - 1} more
-                          </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80">
-                          <div className="space-y-3">
-                            <h4 className="font-medium">All Exams on {format(day, 'MMMM d')}</h4>
-                            <div className="space-y-2">
-                              {dayExams.map((exam) => (
-                                <div key={exam.id} className="text-sm border-l-2 border-tanzanian-blue pl-2">
-                                  <div className="font-medium">{exam.title}</div>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <span>{exam.subject}</span>
-                                    <span>•</span>
-                                    <span>{format(new Date(exam.date), 'hh:mm a')}</span>
-                                    <span>•</span>
-                                    <span>{exam.duration} mins</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    </>
-                  )
-                ) : null}
-              </div>
+        </div>
+        
+        <div className="grid grid-cols-7 gap-2 mb-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            <div key={day} className="text-center font-medium text-gray-500 py-2">
+              {day}
             </div>
-          );
-        })}
-      </div>
-    </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-7 gap-2">
+          {/* Empty cells for days before the start of the month */}
+          {daysOffset.map((_, index) => (
+            <div key={`empty-${index}`} className="h-32 border rounded-lg bg-gray-50"></div>
+          ))}
+          
+          {/* Actual calendar days */}
+          {days.map((day) => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const dayExams = examsByDate[dateKey] || [];
+            const hasExams = dayExams.length > 0;
+            
+            return (
+              <div 
+                key={day.toString()} 
+                className={`relative h-32 p-2 border rounded-lg transition-colors overflow-hidden ${
+                  isToday(day) 
+                    ? 'border-tanzanian-blue bg-blue-50' 
+                    : hasExams 
+                    ? 'bg-green-50 border-green-200'
+                    : ''
+                }`}
+              >
+                <div className={`text-right font-medium ${isToday(day) ? 'text-tanzanian-blue' : ''}`}>
+                  {format(day, 'd')}
+                </div>
+                
+                <div className="mt-2 space-y-1 overflow-hidden">
+                  {dayExams.slice(0, 3).map((exam) => (
+                    <TooltipProvider key={exam.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <a
+                            href={`/exams/${exam.id}`}
+                            className="block text-xs p-1 rounded bg-white border truncate hover:bg-tanzanian-blue/5"
+                          >
+                            <div className="font-medium truncate">{exam.title}</div>
+                            <div className="flex items-center text-gray-500 mt-0.5">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {format(new Date(exam.date), 'HH:mm')}
+                            </div>
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div>
+                            <div className="font-medium">{exam.title}</div>
+                            <div className="text-xs">{exam.subject}</div>
+                            <div className="text-xs mt-1">
+                              {format(new Date(exam.date), 'PPP p')} ({exam.duration} mins)
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                  
+                  {dayExams.length > 3 && (
+                    <div className="text-center mt-1">
+                      <Badge variant="secondary" className="w-full text-xs">
+                        +{dayExams.length - 3} more
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 };

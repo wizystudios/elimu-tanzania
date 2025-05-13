@@ -23,9 +23,13 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Users from "./pages/Users";
 import Classes from "./pages/Classes";
 import CreateClass from "./pages/CreateClass";
+import Subjects from "./pages/Subjects";
+import AddSubject from "./pages/AddSubject";
+import AssignTeachers from "./pages/AssignTeachers";
+import AddParent from "./pages/AddParent";
+import LinkParents from "./pages/LinkParents";
 
 // Create placeholder components for other routes
-const Subjects = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Subjects Management</h1><p>This feature is coming soon.</p></div>;
 const Calendar = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Calendar</h1><p>This feature is coming soon.</p></div>;
 const Announcements = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Announcements</h1><p>This feature is coming soon.</p></div>;
 const Messages = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Messaging</h1><p>This feature is coming soon.</p></div>;
@@ -33,11 +37,9 @@ const Settings = () => <div className="p-6"><h1 className="text-2xl font-bold mb
 const Profile = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">User Profile</h1><p>This feature is coming soon.</p></div>;
 const SchoolDetails = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>;
 const EditSchool = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit School</h1><p>This feature is coming soon.</p></div>;
-const AssignTeachers = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Assign Teachers to Subjects</h1><p>This feature is coming soon.</p></div>;
 const AddStudent = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Add Student</h1><p>This feature is coming soon.</p></div>;
 const StudentAttendance = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Student Attendance</h1><p>This feature is coming soon.</p></div>;
-const AddParent = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Add Parent</h1><p>This feature is coming soon.</p></div>;
-const LinkParents = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Link Parents to Students</h1><p>This feature is coming soon.</p></div>;
+const ExamResults = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Exam Results</h1><p>This feature is coming soon.</p></div>;
 
 const queryClient = new QueryClient();
 
@@ -147,9 +149,19 @@ const AppWithProviders = () => (
             <Subjects />
           </ProtectedRoute>
         } />
+        <Route path="/subjects/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddSubject />
+          </ProtectedRoute>
+        } />
         <Route path="/exams" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
             <Exams />
+          </ProtectedRoute>
+        } />
+        <Route path="/exams/results" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <ExamResults />
           </ProtectedRoute>
         } />
         
