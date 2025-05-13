@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -24,8 +23,15 @@ interface Teacher {
 
 // Add interface for profile data
 interface ProfileData {
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+// Add interface for the teacher data from the query
+interface TeacherQueryResult {
+  id: string;
+  user_id: string;
+  profiles?: ProfileData | null;
 }
 
 const CreateClass = () => {
@@ -59,13 +65,15 @@ const CreateClass = () => {
       if (error) throw error;
       
       if (data) {
-        const formattedTeachers = data.map(teacher => {
-          // Safely access profile data with proper type checking
-          const profile = teacher.profiles as ProfileData | null;
+        const formattedTeachers = data.map((teacher: TeacherQueryResult) => {
+          // Safely handle the profile data without explicit casting
+          const firstName = teacher.profiles?.first_name || '';
+          const lastName = teacher.profiles?.last_name || '';
+          const teacherName = `${firstName} ${lastName}`.trim() || 'Unknown Teacher';
           
           return {
             id: teacher.user_id,
-            name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown Teacher',
+            name: teacherName,
           };
         });
         
