@@ -12,10 +12,16 @@ import Dashboard from "./pages/Index";
 import Schools from "./pages/Schools";
 import RegisterSchool from "./pages/RegisterSchool";
 import Students from "./pages/Students";
+import AddStudent from "./pages/AddStudent"; 
+import StudentAttendance from "./pages/StudentAttendance";
 import Teachers from "./pages/Teachers";
 import AddTeacher from "./pages/AddTeacher";
 import Parents from "./pages/Parents";
+import AddParent from "./pages/AddParent";
+import LinkParents from "./pages/LinkParents";
 import Exams from "./pages/Exams";
+import CreateExam from "./pages/CreateExam";
+import ExamResults from "./pages/ExamResults";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -26,20 +32,11 @@ import CreateClass from "./pages/CreateClass";
 import Subjects from "./pages/Subjects";
 import AddSubject from "./pages/AddSubject";
 import AssignTeachers from "./pages/AssignTeachers";
-import AddParent from "./pages/AddParent";
-import LinkParents from "./pages/LinkParents";
-
-// Create placeholder components for other routes
-const Calendar = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Calendar</h1><p>This feature is coming soon.</p></div>;
-const Announcements = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Announcements</h1><p>This feature is coming soon.</p></div>;
-const Messages = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Messaging</h1><p>This feature is coming soon.</p></div>;
-const Settings = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Settings</h1><p>This feature is coming soon.</p></div>;
-const Profile = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">User Profile</h1><p>This feature is coming soon.</p></div>;
-const SchoolDetails = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>;
-const EditSchool = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit School</h1><p>This feature is coming soon.</p></div>;
-const AddStudent = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Add Student</h1><p>This feature is coming soon.</p></div>;
-const StudentAttendance = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Student Attendance</h1><p>This feature is coming soon.</p></div>;
-const ExamResults = () => <div className="p-6"><h1 className="text-2xl font-bold mb-4">Exam Results</h1><p>This feature is coming soon.</p></div>;
+import Announcements from "./pages/Announcements";
+import CreateAnnouncement from "./pages/CreateAnnouncement";
+import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
+import Calendar from "./pages/Calendar";
 
 const queryClient = new QueryClient();
 
@@ -72,12 +69,12 @@ const AppWithProviders = () => (
         } />
         <Route path="/schools/:id" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
-            <SchoolDetails />
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>
           </ProtectedRoute>
         } />
         <Route path="/schools/:id/edit" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
-            <EditSchool />
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit School</h1><p>This feature is coming soon.</p></div>
           </ProtectedRoute>
         } />
         
@@ -159,6 +156,11 @@ const AppWithProviders = () => (
             <Exams />
           </ProtectedRoute>
         } />
+        <Route path="/exams/create" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <CreateExam />
+          </ProtectedRoute>
+        } />
         <Route path="/exams/results" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
             <ExamResults />
@@ -176,6 +178,11 @@ const AppWithProviders = () => (
             <Announcements />
           </ProtectedRoute>
         } />
+        <Route path="/announcements/create" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <CreateAnnouncement />
+          </ProtectedRoute>
+        } />
         <Route path="/messages" element={
           <ProtectedRoute>
             <Messages />
@@ -186,11 +193,6 @@ const AppWithProviders = () => (
         <Route path="/settings" element={
           <ProtectedRoute>
             <Settings />
-          </ProtectedRoute>
-        } />
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <Profile />
           </ProtectedRoute>
         } />
         

@@ -1,55 +1,31 @@
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/components/ui/use-toast';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Spinner } from '@/components/ui/spinner';
+import { EducationLevel } from '@/types';
 
 const CreateClass = () => {
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const { schoolId } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Form state
   const [formData, setFormData] = useState({
-    name: '',
-    education_level: '',
-    homeroom_teacher_id: '',
-    academic_year: new Date().getFullYear().toString(),
-  });
-
-  // Fetch teachers for the dropdown - Fix the query to correctly join tables
-  const { data: teachers, isLoading: loadingTeachers } = useQuery({
-    queryKey: ['teachers'],
-    queryFn: async () => {
-      // First get all users with teacher role
-      const { data: teacherRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'teacher');
-
-      if (rolesError) throw rolesError;
-      
-      if (!teacherRoles || teacherRoles.length === 0) {
-        return [];
-      }
-      
-      // Then get teacher profile information using the user_ids
-      const teacherIds = teacherRoles.map(role => role.user_id);
-      
-      const { data: teacherProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', teacherIds);
-        
-      if (profilesError) throw profilesError;
-      
-      // Return the teacher profiles with necessary information
-      return teacherProfiles || [];
-    }
+    className: '',
+    educationLevel: '',
+    academicYear: (new Date()).getFullYear().toString(),
+    homeroomTeacher: '',
   });
 
   // Education level options
@@ -70,51 +46,103 @@ const CreateClass = () => {
     { value: 'form6', label: 'Form 6' },
   ];
 
-  // Academic years options (current year and 4 previous years)
+  // Generate academic year options
+  const currentYear = new Date().getFullYear();
   const academicYears = Array.from({ length: 5 }, (_, i) => {
-    const year = new Date().getFullYear() - i;
-    return { value: year.toString(), label: year.toString() };
+    const year = currentYear + i - 2;
+    return {
+      value: year.toString(),
+      label: `${year}-${year + 1}`,
+    };
   });
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  // Fetch teachers
+  const { data: teachers, isLoading: loadingTeachers } = useQuery({
+    queryKey: ['teachers', schoolId],
+    queryFn: async () => {
+      if (!schoolId) return [];
+      
+      const { data: teacherRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select(`
+          id,
+          user_id,
+          profiles:user_id (
+            id,
+            first_name,
+            last_name
+          )
+        `)
+        .eq('school_id', schoolId)
+        .eq('role', 'teacher');
+        
+      if (rolesError) throw rolesError;
+      
+      return teacherRoles.map(teacher => ({
+        id: teacher.user_id,
+        name: `${teacher.profiles?.first_name || ''} ${teacher.profiles?.last_name || ''}`.trim(),
+      })) || [];
+    },
+  });
+
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
+  // Handle select changes
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.education_level) {
+    if (!schoolId) {
       toast({
-        title: "Validation Error",
-        description: "Please fill out all required fields",
+        title: "Error",
+        description: "School information is missing",
         variant: "destructive"
       });
       return;
     }
     
     try {
-      // Insert the new class into Supabase
+      setIsSubmitting(true);
+      
+      // Validate form
+      if (!formData.className.trim() || !formData.educationLevel || !formData.academicYear) {
+        throw new Error("Please fill all required fields");
+      }
+      
       const { data, error } = await supabase
         .from('classes')
-        .insert([{
-          name: formData.name,
-          education_level: formData.education_level,
-          academic_year: formData.academic_year,
-          homeroom_teacher_id: formData.homeroom_teacher_id || null,
-          // We'll get school_id from the authenticated user's context in a real implementation
-          school_id: "1" // This should come from auth context in production
-        }])
+        .insert({
+          name: formData.className.trim(),
+          education_level: formData.educationLevel as EducationLevel,
+          academic_year: `${formData.academicYear}-${parseInt(formData.academicYear) + 1}`,
+          homeroom_teacher_id: formData.homeroomTeacher || null,
+          school_id: schoolId
+        })
         .select();
       
       if (error) throw error;
       
       toast({
         title: "Success",
-        description: "Class created successfully",
+        description: "Class created successfully"
       });
       
-      // Redirect to the classes listing page
       navigate('/classes');
+      
     } catch (error: any) {
       console.error('Error creating class:', error);
       toast({
@@ -122,105 +150,126 @@ const CreateClass = () => {
         description: error.message || "Failed to create class",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <MainLayout>
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-1">Create New Class</h1>
-        <p className="text-gray-600 mb-6">Add a new class to your school</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Create New Class</h1>
+          <p className="text-gray-600">Add a new class to your school</p>
+        </div>
         
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <Label htmlFor="name">Class Name <span className="text-red-500">*</span></Label>
-                <Input 
-                  id="name" 
-                  value={formData.name}
-                  onChange={(e) => handleChange('name', e.target.value)}
-                  placeholder="e.g. Class 1A, Form 2B"
-                  className="mt-1"
-                  required
-                />
+        <Card>
+          <CardHeader>
+            <CardTitle>Class Details</CardTitle>
+            <CardDescription>
+              Fill in the information for the new class
+            </CardDescription>
+          </CardHeader>
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="className">Class Name</Label>
+                  <Input 
+                    id="className"
+                    name="className"
+                    placeholder="e.g., Class 1A, Form 3B"
+                    value={formData.className}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="educationLevel">Education Level</Label>
+                  <Select
+                    value={formData.educationLevel}
+                    onValueChange={(value) => handleSelectChange('educationLevel', value)}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select education level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {educationLevels.map(level => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="academicYear">Academic Year</Label>
+                  <Select
+                    value={formData.academicYear}
+                    onValueChange={(value) => handleSelectChange('academicYear', value)}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select academic year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {academicYears.map(year => (
+                        <SelectItem key={year.value} value={year.value}>
+                          {year.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="homeroomTeacher">Homeroom Teacher (Optional)</Label>
+                  <Select
+                    value={formData.homeroomTeacher}
+                    onValueChange={(value) => handleSelectChange('homeroomTeacher', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingTeachers ? "Loading teachers..." : "Select teacher"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {teachers?.map(teacher => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              
-              <div>
-                <Label htmlFor="education_level">Education Level <span className="text-red-500">*</span></Label>
-                <Select
-                  value={formData.education_level}
-                  onValueChange={(value) => handleChange('education_level', value)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select education level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {educationLevels.map((level) => (
-                      <SelectItem key={level.value} value={level.value}>
-                        {level.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="academic_year">Academic Year <span className="text-red-500">*</span></Label>
-                <Select
-                  value={formData.academic_year}
-                  onValueChange={(value) => handleChange('academic_year', value)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select academic year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {academicYears.map((year) => (
-                      <SelectItem key={year.value} value={year.value}>
-                        {year.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="homeroom_teacher_id">Class Teacher</Label>
-                <Select
-                  value={formData.homeroom_teacher_id}
-                  onValueChange={(value) => handleChange('homeroom_teacher_id', value)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={loadingTeachers ? "Loading teachers..." : "Select class teacher"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No teacher assigned</SelectItem>
-                    {teachers && teachers.map((teacher) => (
-                      <SelectItem key={teacher.id} value={teacher.id}>
-                        {teacher.first_name} {teacher.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex justify-end space-x-4">
-              <Button
+            </CardContent>
+            <CardFooter className="flex justify-end space-x-2">
+              <Button 
+                variant="outline" 
                 type="button"
-                variant="outline"
                 onClick={() => navigate('/classes')}
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                Create Class
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Class'
+                )}
               </Button>
-            </div>
-          </div>
-        </form>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     </MainLayout>
   );
