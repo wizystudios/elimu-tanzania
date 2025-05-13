@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GraduationCap, Book, Check } from 'lucide-react';
+
+// Define types for the assignment data
+type TeacherAssignment = {
+  id: string;
+  teacher_id: string;
+  class_id: string;
+  subject_id: string;
+  academic_year: string;
+  classes: { name: string; education_level: string };
+  subjects: { name: string; code: string };
+  school_id: string;
+  teacher_name?: string;
+};
 
 const AssignTeachers = () => {
   const [selectedClass, setSelectedClass] = useState<string>('');
@@ -94,7 +106,7 @@ const AssignTeachers = () => {
   });
   
   // Fetch existing teacher-subject assignments
-  const { data: existingAssignments, refetch: refetchAssignments } = useQuery({
+  const { data: existingAssignments, refetch: refetchAssignments } = useQuery<TeacherAssignment[]>({
     queryKey: ['teacher_subjects', academicYear],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -137,7 +149,7 @@ const AssignTeachers = () => {
         })
       );
       
-      return results;
+      return results as TeacherAssignment[];
     }
   });
   
@@ -253,7 +265,7 @@ const AssignTeachers = () => {
       return {};
     }
     
-    return existingAssignments.reduce((acc: Record<string, any[]>, curr) => {
+    return existingAssignments.reduce((acc: Record<string, TeacherAssignment[]>, curr) => {
       const classId = curr.class_id;
       if (!acc[classId]) {
         acc[classId] = [];
