@@ -22,6 +22,12 @@ interface Teacher {
   name: string;
 }
 
+// Add interface for profile data
+interface ProfileData {
+  first_name: string;
+  last_name: string;
+}
+
 const CreateClass = () => {
   const [className, setClassName] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
@@ -39,6 +45,7 @@ const CreateClass = () => {
     try {
       if (!schoolId) return;
       
+      // Modify the query to correctly join with the profiles table
       const { data, error } = await supabase
         .from('user_roles')
         .select(`
@@ -52,10 +59,15 @@ const CreateClass = () => {
       if (error) throw error;
       
       if (data) {
-        const formattedTeachers = data.map(teacher => ({
-          id: teacher.user_id,
-          name: `${teacher.profiles?.first_name || ''} ${teacher.profiles?.last_name || ''}`.trim(),
-        }));
+        const formattedTeachers = data.map(teacher => {
+          // Safely access profile data with proper type checking
+          const profile = teacher.profiles as ProfileData | null;
+          
+          return {
+            id: teacher.user_id,
+            name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Unknown Teacher',
+          };
+        });
         
         setTeachers(formattedTeachers);
       }
