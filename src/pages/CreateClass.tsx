@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -21,17 +22,10 @@ interface Teacher {
   name: string;
 }
 
-// Add interface for profile data
+// Update interfaces to match the actual data structure
 interface ProfileData {
   first_name: string | null;
   last_name: string | null;
-}
-
-// Add interface for the teacher data from the query
-interface TeacherQueryResult {
-  id: string;
-  user_id: string;
-  profiles?: ProfileData | null;
 }
 
 const CreateClass = () => {
@@ -51,24 +45,32 @@ const CreateClass = () => {
     try {
       if (!schoolId) return;
       
-      // Modify the query to correctly join with the profiles table
-      const { data, error } = await supabase
+      // Update the query to correctly fetch teacher data
+      // First get the user_roles for teachers
+      const { data: teacherRoles, error: rolesError } = await supabase
         .from('user_roles')
-        .select(`
-          id,
-          user_id,
-          profiles:user_id (first_name, last_name)
-        `)
+        .select('id, user_id')
         .eq('role', 'teacher')
         .eq('school_id', schoolId);
         
-      if (error) throw error;
+      if (rolesError) throw rolesError;
       
-      if (data) {
-        const formattedTeachers = data.map((teacher: TeacherQueryResult) => {
-          // Safely handle the profile data without explicit casting
-          const firstName = teacher.profiles?.first_name || '';
-          const lastName = teacher.profiles?.last_name || '';
+      if (teacherRoles && teacherRoles.length > 0) {
+        // Get teacher profiles in a separate query
+        const teacherIds = teacherRoles.map(teacher => teacher.user_id);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', teacherIds);
+          
+        if (profilesError) throw profilesError;
+        
+        // Now combine the data
+        const formattedTeachers = teacherRoles.map(teacher => {
+          const profile = profilesData?.find(p => p.id === teacher.user_id);
+          const firstName = profile?.first_name || '';
+          const lastName = profile?.last_name || '';
           const teacherName = `${firstName} ${lastName}`.trim() || 'Unknown Teacher';
           
           return {
