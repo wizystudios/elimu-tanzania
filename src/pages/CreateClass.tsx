@@ -220,7 +220,8 @@ const CreateClass = () => {
                       <SelectValue placeholder="Select teacher (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      {/* Fix here - make sure there's a non-empty value prop */}
+                      <SelectItem value="none">None</SelectItem>
                       {teachers?.map((teacher) => (
                         <SelectItem key={teacher.id} value={teacher.id}>
                           {teacher.name}
