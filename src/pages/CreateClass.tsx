@@ -31,33 +31,34 @@ const CreateClass = () => {
     academic_year: new Date().getFullYear().toString(),
   });
 
-  // Fetch teachers for the dropdown
+  // Fetch teachers for the dropdown - Fix the query to correctly join tables
   const { data: teachers, isLoading: loadingTeachers } = useQuery({
     queryKey: ['teachers'],
     queryFn: async () => {
-      // We're getting teachers from the user_roles and profiles tables
-      const { data, error } = await supabase
+      // First get all users with teacher role
+      const { data: teacherRoles, error: rolesError } = await supabase
         .from('user_roles')
-        .select(`
-          user_id,
-          profiles:user_id (
-            id,
-            first_name,
-            last_name
-          )
-        `)
+        .select('user_id')
         .eq('role', 'teacher');
 
-      if (error) throw error;
+      if (rolesError) throw rolesError;
       
-      // Return teachers with their profile information
-      return data
-        .filter(item => item.profiles)
-        .map(item => ({
-          id: item.user_id,
-          first_name: item.profiles.first_name,
-          last_name: item.profiles.last_name
-        }));
+      if (!teacherRoles || teacherRoles.length === 0) {
+        return [];
+      }
+      
+      // Then get teacher profile information using the user_ids
+      const teacherIds = teacherRoles.map(role => role.user_id);
+      
+      const { data: teacherProfiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', teacherIds);
+        
+      if (profilesError) throw profilesError;
+      
+      // Return the teacher profiles with necessary information
+      return teacherProfiles || [];
     }
   });
 
