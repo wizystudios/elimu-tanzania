@@ -1,296 +1,264 @@
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Search, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import MainLayout from '@/components/layout/MainLayout';
+import { Search, Plus, Filter, Building2, Users, BookOpen } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
-// Define the class type with subjects and teacher data
-interface ClassWithDetails {
-  id: string;
-  name: string;
-  education_level: string;
-  academic_year: string;
-  homeroom_teacher?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
-  subjects: string[];
-  student_count: number;
-}
-
-const fetchClasses = async (): Promise<ClassWithDetails[]> => {
-  // Fetch classes with teacher details
-  const { data: classes, error: classesError } = await supabase
-    .from('classes')
-    .select(`
-      id, 
-      name, 
-      education_level, 
-      academic_year, 
-      homeroom_teacher_id, 
-      school_id
-    `);
-
-  if (classesError) {
-    console.error('Error fetching classes:', classesError);
-    throw new Error(classesError.message);
-  }
-
-  // If no classes found, return empty array
-  if (!classes || classes.length === 0) {
-    return [];
-  }
-
-  // Get teachers information
-  const teacherIds = classes
-    .map(cls => cls.homeroom_teacher_id)
-    .filter(Boolean) as string[];
-
-  const { data: teachers, error: teachersError } = await supabase
-    .from('profiles')
-    .select('id, first_name, last_name, email')
-    .in('id', teacherIds);
-
-  if (teachersError) {
-    console.error('Error fetching teachers:', teachersError);
-    throw new Error(teachersError.message);
-  }
-
-  // Get subjects for each class
-  // In a real scenario, you would fetch this from a class_subjects junction table
-  // For now, we'll fetch all subjects
-  const { data: subjects, error: subjectsError } = await supabase
-    .from('subjects')
-    .select('id, name');
-
-  if (subjectsError) {
-    console.error('Error fetching subjects:', subjectsError);
-    throw new Error(subjectsError.message);
-  }
-
-  // Count students per class
-  const studentCountPromises = classes.map(async (cls) => {
-    const { count, error } = await supabase
-      .from('students')
-      .select('id', { count: 'exact', head: true })
-      .eq('current_class_id', cls.id);
-    
-    return { classId: cls.id, count: count || 0, error };
-  });
-
-  const studentCounts = await Promise.all(studentCountPromises);
-
-  // Combine all data
-  return classes.map(cls => {
-    // Find the teacher for this class
-    const teacher = teachers?.find(t => t.id === cls.homeroom_teacher_id);
-    
-    // Get random subjects for demo purposes
-    // In a real app, you would fetch the actual subjects assigned to each class
-    const classSubjects = subjects 
-      ? subjects
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 4 + Math.floor(Math.random() * 3))
-          .map(s => s.name)
-      : [];
-    
-    // Get student count
-    const studentCount = studentCounts.find(sc => sc.classId === cls.id)?.count || 0;
-
-    return {
-      id: cls.id,
-      name: cls.name,
-      education_level: cls.education_level,
-      academic_year: cls.academic_year,
-      homeroom_teacher: teacher ? {
-        id: teacher.id,
-        first_name: teacher.first_name,
-        last_name: teacher.last_name,
-        email: teacher.email
-      } : undefined,
-      subjects: classSubjects,
-      student_count: studentCount
-    };
-  });
-};
-
 const Classes = () => {
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string | null>(new Date().getFullYear().toString());
   
-  // Fetch classes using React Query
-  const { data: classes, isLoading, error } = useQuery({
-    queryKey: ['classes'],
-    queryFn: fetchClasses
+  // Get all education levels for filter options
+  const educationLevels = [
+    { value: 'chekechea', label: 'Kindergarten' },
+    { value: 'darasa1', label: 'Standard 1' },
+    { value: 'darasa2', label: 'Standard 2' },
+    { value: 'darasa3', label: 'Standard 3' },
+    { value: 'darasa4', label: 'Standard 4' },
+    { value: 'darasa5', label: 'Standard 5' },
+    { value: 'darasa6', label: 'Standard 6' },
+    { value: 'darasa7', label: 'Standard 7' },
+    { value: 'form1', label: 'Form 1' },
+    { value: 'form2', label: 'Form 2' },
+    { value: 'form3', label: 'Form 3' },
+    { value: 'form4', label: 'Form 4' },
+    { value: 'form5', label: 'Form 5' },
+    { value: 'form6', label: 'Form 6' },
+  ];
+  
+  // Academic years for filtering
+  const academicYears = Array.from({ length: 5 }, (_, i) => {
+    const year = new Date().getFullYear() - i;
+    return { value: year.toString(), label: year.toString() };
   });
 
-  const filteredClasses = classes?.filter(cls => 
-    cls.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    cls.education_level.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (cls.homeroom_teacher && 
-      `${cls.homeroom_teacher.first_name} ${cls.homeroom_teacher.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
-  
-  // Helper function to determine if a class is primary or secondary
-  const isPrimary = (educationLevel: string) => {
-    return ['darasa1', 'darasa2', 'darasa3', 'darasa4', 'darasa5', 'darasa6', 'darasa7', 'Standard 1', 'Standard 2', 'Standard 3', 'Standard 4', 'Standard 5', 'Standard 6', 'Standard 7']
-      .some(level => educationLevel.includes(level));
-  };
-
-  const isSecondary = (educationLevel: string) => {
-    return ['form1', 'form2', 'form3', 'form4', 'form5', 'form6', 'Form 1', 'Form 2', 'Form 3', 'Form 4', 'Form 5', 'Form 6']
-      .some(level => educationLevel.includes(level));
-  };
-
-  // Format education level for display
-  const formatEducationLevel = (level: string) => {
-    // Convert DB format (e.g., darasa1) to display format (e.g., Standard 1)
-    if (level.startsWith('darasa')) {
-      const number = level.replace('darasa', '');
-      return `Standard ${number}`;
-    } else if (level.startsWith('form')) {
-      const number = level.replace('form', '');
-      return `Form ${number}`;
+  // Fetch classes data from Supabase
+  const { data: classes, isLoading } = useQuery({
+    queryKey: ['classes', selectedLevel, selectedYear],
+    queryFn: async () => {
+      let query = supabase.from('classes')
+        .select(`
+          *,
+          teacher:homeroom_teacher_id (
+            user_id
+          ),
+          students:students (
+            id
+          ),
+          teacher_subjects:teacher_subjects (
+            subject_id,
+            subjects:subject_id (
+              name
+            )
+          )
+        `);
+      
+      if (selectedLevel) {
+        query = query.eq('education_level', selectedLevel);
+      }
+      
+      if (selectedYear) {
+        query = query.eq('academic_year', selectedYear);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      // For each class, fetch the teacher's name from profiles
+      const classesWithTeachers = await Promise.all(data.map(async (classItem) => {
+        if (classItem.teacher?.user_id) {
+          const { data: teacherProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', classItem.teacher.user_id)
+            .single();
+          
+          if (profileError) {
+            console.error('Error fetching teacher profile:', profileError);
+            return {
+              ...classItem,
+              teacherName: 'Unknown Teacher'
+            };
+          }
+          
+          return {
+            ...classItem,
+            teacherName: `${teacherProfile.first_name} ${teacherProfile.last_name}`
+          };
+        }
+        
+        return {
+          ...classItem,
+          teacherName: 'No Teacher Assigned'
+        };
+      }));
+      
+      return classesWithTeachers;
     }
-    return level;
+  });
+
+  // Function to get the education level label
+  const getEducationLevelLabel = (level: string): string => {
+    const educationLevel = educationLevels.find(el => el.value === level);
+    return educationLevel ? educationLevel.label : level;
   };
 
-  // Render the class card
-  const renderClassCard = (cls: ClassWithDetails) => (
-    <Card key={cls.id} className="hover:shadow-md transition-shadow cursor-pointer"
-      onClick={() => navigate(`/classes/${cls.id}`)}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
+  // Filter classes by search query
+  const filteredClasses = classes?.filter((classItem) => {
+    return classItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           getEducationLevelLabel(classItem.education_level).toLowerCase().includes(searchQuery.toLowerCase()) ||
+           classItem.teacherName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  return (
+    <MainLayout>
+      <div>
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <CardTitle>{cls.name}</CardTitle>
-            <CardDescription>{formatEducationLevel(cls.education_level)}</CardDescription>
+            <h1 className="text-2xl font-bold">Classes</h1>
+            <p className="text-gray-600">Manage school classes and assignments</p>
           </div>
-          <Badge>{cls.student_count} students</Badge>
+          <Link 
+            to="/classes/create" 
+            className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Create Class</span>
+          </Link>
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm font-medium">
-          Class Teacher: {cls.homeroom_teacher 
-            ? `${cls.homeroom_teacher.first_name} ${cls.homeroom_teacher.last_name}` 
-            : 'Not assigned'}
-        </p>
-        <Separator className="my-2" />
-        <div>
-          <p className="text-sm font-medium mb-1">Subjects:</p>
-          <div className="flex flex-wrap gap-1">
-            {cls.subjects.map((subject, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs">
-                {subject}
-              </Badge>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input 
+                type="text" 
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-tanzanian-blue focus:border-transparent"
+                placeholder="Search classes by name, level, or teacher..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 text-sm">
+                <Filter className="h-4 w-4 text-gray-400" />
+                <span>Level:</span>
+                <select 
+                  className="border border-gray-300 rounded-md px-3 py-1"
+                  value={selectedLevel || ''}
+                  onChange={(e) => setSelectedLevel(e.target.value || null)}
+                >
+                  <option value="">All</option>
+                  {educationLevels.map((level) => (
+                    <option key={level.value} value={level.value}>{level.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center space-x-2 text-sm">
+                <span>Year:</span>
+                <select 
+                  className="border border-gray-300 rounded-md px-3 py-1"
+                  value={selectedYear || ''}
+                  onChange={(e) => setSelectedYear(e.target.value || null)}
+                >
+                  <option value="">All</option>
+                  {academicYears.map((year) => (
+                    <option key={year.value} value={year.value}>{year.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Classes Grid */}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-tanzanian-blue"></div>
+          </div>
+        ) : filteredClasses && filteredClasses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredClasses.map((classItem) => (
+              <div key={classItem.id} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-gray-800">{classItem.name}</h3>
+                    <span className="px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-800">
+                      {getEducationLevelLabel(classItem.education_level)}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-start space-x-3">
+                      <Users className="h-5 w-5 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Students</p>
+                        <p className="text-lg font-semibold">{classItem.students?.length || 0}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <Building2 className="h-5 w-5 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Class Teacher</p>
+                        <p className="text-base">{classItem.teacherName}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <BookOpen className="h-5 w-5 text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">Subjects</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Array.from(new Set(classItem.teacher_subjects?.map(ts => ts.subjects?.name))).map((subject, index) => (
+                            subject && (
+                              <span key={index} className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                {subject}
+                              </span>
+                            )
+                          ))}
+                          {(!classItem.teacher_subjects || classItem.teacher_subjects.length === 0) && (
+                            <span className="text-sm text-gray-500">No subjects assigned</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
+                  <Link to={`/classes/${classItem.id}`} className="text-sm text-tanzanian-blue hover:underline">View Details</Link>
+                  <Link to={`/classes/${classItem.id}/edit`} className="text-sm text-tanzanian-green hover:underline">Edit</Link>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  if (error) {
-    return (
-      <div className="container p-6 mx-auto">
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
-          <p>Error loading classes: {(error as Error).message}</p>
-          <Button 
-            variant="outline" 
-            className="mt-2" 
-            onClick={() => window.location.reload()}
-          >
-            Retry
-          </Button>
-        </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm p-10 text-center">
+            <div className="flex flex-col items-center justify-center">
+              <Building2 className="h-16 w-16 text-gray-300 mb-4" />
+              <h3 className="text-xl font-medium text-gray-700 mb-2">No Classes Found</h3>
+              <p className="text-gray-500 mb-6 max-w-md">
+                {searchQuery || selectedLevel || selectedYear 
+                  ? "No classes match your search criteria. Try adjusting your filters."
+                  : "There are no classes created yet. Start by creating your first class."}
+              </p>
+              <Link 
+                to="/classes/create" 
+                className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <Plus className="h-5 w-5" />
+                <span>Create Class</span>
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
-    );
-  }
-  
-  return (
-    <div className="container p-6 mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Classes Management</h1>
-        <Button onClick={() => navigate('/classes/create')}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Create Class
-        </Button>
-      </div>
-      
-      <div className="flex items-center mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search classes..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-      
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-2 text-lg">Loading classes...</span>
-        </div>
-      ) : (
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList>
-            <TabsTrigger value="all">All Classes</TabsTrigger>
-            <TabsTrigger value="primary">Primary</TabsTrigger>
-            <TabsTrigger value="secondary">Secondary</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="all" className="space-y-4">
-            {filteredClasses.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-                {filteredClasses.map(renderClassCard)}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-500">No classes found. Create your first class to get started.</p>
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="primary" className="space-y-4">
-            {filteredClasses.filter(cls => isPrimary(cls.education_level)).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-                {filteredClasses
-                  .filter(cls => isPrimary(cls.education_level))
-                  .map(renderClassCard)}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-500">No primary classes found.</p>
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="secondary" className="space-y-4">
-            {filteredClasses.filter(cls => isSecondary(cls.education_level)).length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-                {filteredClasses
-                  .filter(cls => isSecondary(cls.education_level))
-                  .map(renderClassCard)}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-500">No secondary classes found.</p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
-    </div>
+    </MainLayout>
   );
 };
 

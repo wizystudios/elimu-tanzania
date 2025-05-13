@@ -1,305 +1,283 @@
 
-import React from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/use-toast';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
-const examFormSchema = z.object({
-  title: z.string().min(2, {
-    message: 'Exam title must be at least 2 characters.',
-  }),
-  subject: z.string().min(1, {
-    message: 'Subject is required.',
-  }),
-  educationLevel: z.string().min(1, {
-    message: 'Education level is required.',
-  }),
-  date: z.date({
-    required_error: 'Exam date is required.',
-  }),
-  startTime: z.string().min(1, {
-    message: 'Start time is required.',
-  }),
-  duration: z.string().min(1, {
-    message: 'Duration is required.',
-  }),
-  description: z.string().optional(),
-  passingScore: z.string().min(1, {
-    message: 'Passing score is required.',
-  }),
-  totalMarks: z.string().min(1, {
-    message: 'Total marks is required.',
-  }),
-});
+interface CreateExamFormProps {
+  onExamCreated?: () => void;
+}
 
-export const CreateExamForm: React.FC = () => {
-  const form = useForm<z.infer<typeof examFormSchema>>({
-    resolver: zodResolver(examFormSchema),
-    defaultValues: {
-      title: '',
-      subject: '',
-      educationLevel: '',
-      date: undefined,
-      startTime: '',
-      duration: '',
-      description: '',
-      passingScore: '',
-      totalMarks: '',
-    },
+const CreateExamForm = ({ onExamCreated }: CreateExamFormProps) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    subject_id: '',
+    class_id: '',
+    exam_date: '',
+    exam_time: '09:00',
+    duration: 60,
+    total_marks: 100,
+    passing_score: 40,
+    description: ''
   });
 
-  const onSubmit = (data: z.infer<typeof examFormSchema>) => {
-    // In a real app, this would create a new exam via API
-    console.log('Form data submitted:', data);
-    toast({
-      title: 'Exam Created',
-      description: `${data.title} has been scheduled for ${format(data.date, 'MMMM d, yyyy')}`,
-    });
-    form.reset();
+  // Fetch subjects from Supabase
+  const { data: subjects, isLoading: loadingSubjects } = useQuery({
+    queryKey: ['subjects'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('id, name, code')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  // Fetch classes from Supabase
+  const { data: classes, isLoading: loadingClasses } = useQuery({
+    queryKey: ['classes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name, education_level')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const handleChange = (field: string, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!formData.title || !formData.subject_id || !formData.class_id || !formData.exam_date) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill out all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      
+      // Combine date and time
+      const examDateTime = new Date(`${formData.exam_date}T${formData.exam_time}`);
+      
+      // Insert exam into Supabase
+      const { data, error } = await supabase
+        .from('exams')
+        .insert([{
+          title: formData.title,
+          subject_id: formData.subject_id,
+          class_id: formData.class_id,
+          exam_date: examDateTime.toISOString(),
+          duration: formData.duration,
+          total_marks: formData.total_marks,
+          passing_score: formData.passing_score,
+          description: formData.description,
+          // In a real implementation, get the authenticated user id
+          created_by: "1", // This should be auth.uid() in production
+          school_id: "1" // This should come from auth context in production
+        }])
+        .select();
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Success!",
+        description: "Exam has been scheduled successfully."
+      });
+      
+      // Reset form
+      setFormData({
+        title: '',
+        subject_id: '',
+        class_id: '',
+        exam_date: '',
+        exam_time: '09:00',
+        duration: 60,
+        total_marks: 100,
+        passing_score: 40,
+        description: ''
+      });
+      
+      // Notify parent component
+      if (onExamCreated) {
+        onExamCreated();
+      }
+      
+    } catch (error: any) {
+      console.error('Error creating exam:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create exam",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Education levels for the helper text
+  const getEducationLevelLabel = (level: string): string => {
+    if (level.startsWith('darasa')) {
+      const classNumber = level.replace('darasa', '');
+      return `Standard ${classNumber}`;
+    } else if (level.startsWith('form')) {
+      const formNumber = level.replace('form', '');
+      return `Form ${formNumber}`;
+    } else if (level === 'chekechea') {
+      return 'Kindergarten';
+    }
+    return level;
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Exam Title</FormLabel>
-              <FormControl>
-                <Input placeholder="End Term Mathematics Exam" {...field} />
-              </FormControl>
-              <FormDescription>
-                Enter a descriptive name for the examination.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="title">Exam Title <span className="text-red-500">*</span></Label>
+          <Input
+            id="title"
+            value={formData.title}
+            onChange={(e) => handleChange('title', e.target.value)}
+            placeholder="e.g. End Term Mathematics Exam"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="subject">Subject <span className="text-red-500">*</span></Label>
+          <Select
+            value={formData.subject_id}
+            onValueChange={(value) => handleChange('subject_id', value)}
+          >
+            <SelectTrigger id="subject">
+              <SelectValue placeholder={loadingSubjects ? "Loading subjects..." : "Select a subject"} />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects?.map((subject) => (
+                <SelectItem key={subject.id} value={subject.id}>
+                  {subject.name} ({subject.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="class">Class <span className="text-red-500">*</span></Label>
+          <Select
+            value={formData.class_id}
+            onValueChange={(value) => handleChange('class_id', value)}
+          >
+            <SelectTrigger id="class">
+              <SelectValue placeholder={loadingClasses ? "Loading classes..." : "Select a class"} />
+            </SelectTrigger>
+            <SelectContent>
+              {classes?.map((classItem) => (
+                <SelectItem key={classItem.id} value={classItem.id}>
+                  {classItem.name} ({getEducationLevelLabel(classItem.education_level)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="exam_date">Exam Date <span className="text-red-500">*</span></Label>
+          <Input
+            id="exam_date"
+            type="date"
+            value={formData.exam_date}
+            onChange={(e) => handleChange('exam_date', e.target.value)}
+            min={new Date().toISOString().split('T')[0]}
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="exam_time">Start Time <span className="text-red-500">*</span></Label>
+          <Input
+            id="exam_time"
+            type="time"
+            value={formData.exam_time}
+            onChange={(e) => handleChange('exam_time', e.target.value)}
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="duration">Duration (minutes) <span className="text-red-500">*</span></Label>
+          <Input
+            id="duration"
+            type="number"
+            value={formData.duration}
+            onChange={(e) => handleChange('duration', parseInt(e.target.value))}
+            min={15}
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="total_marks">Total Marks <span className="text-red-500">*</span></Label>
+          <Input
+            id="total_marks"
+            type="number"
+            value={formData.total_marks}
+            onChange={(e) => handleChange('total_marks', parseInt(e.target.value))}
+            min={1}
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="passing_score">Passing Score <span className="text-red-500">*</span></Label>
+          <Input
+            id="passing_score"
+            type="number"
+            value={formData.passing_score}
+            onChange={(e) => handleChange('passing_score', parseInt(e.target.value))}
+            min={1}
+            max={formData.total_marks}
+            required
+          />
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          placeholder="Exam instructions, scope, and other relevant details..."
+          rows={4}
         />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="subject"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Subject</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Mathematics">Mathematics</SelectItem>
-                    <SelectItem value="Science">Science</SelectItem>
-                    <SelectItem value="English">English</SelectItem>
-                    <SelectItem value="Kiswahili">Kiswahili</SelectItem>
-                    <SelectItem value="Social Studies">Social Studies</SelectItem>
-                    <SelectItem value="Geography">Geography</SelectItem>
-                    <SelectItem value="History">History</SelectItem>
-                    <SelectItem value="Physics">Physics</SelectItem>
-                    <SelectItem value="Chemistry">Chemistry</SelectItem>
-                    <SelectItem value="Biology">Biology</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="educationLevel"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Education Level</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select level" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="chekechea">Kindergarten</SelectItem>
-                    <SelectItem value="darasa1">Primary 1</SelectItem>
-                    <SelectItem value="darasa2">Primary 2</SelectItem>
-                    <SelectItem value="darasa3">Primary 3</SelectItem>
-                    <SelectItem value="darasa4">Primary 4</SelectItem>
-                    <SelectItem value="darasa5">Primary 5</SelectItem>
-                    <SelectItem value="darasa6">Primary 6</SelectItem>
-                    <SelectItem value="darasa7">Primary 7</SelectItem>
-                    <SelectItem value="form1">Form 1</SelectItem>
-                    <SelectItem value="form2">Form 2</SelectItem>
-                    <SelectItem value="form3">Form 3</SelectItem>
-                    <SelectItem value="form4">Form 4</SelectItem>
-                    <SelectItem value="form5">Form 5</SelectItem>
-                    <SelectItem value="form6">Form 6</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="date"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Exam Date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) =>
-                        date < new Date(new Date().setHours(0, 0, 0, 0))
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="startTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Start Time</FormLabel>
-                <FormControl>
-                  <Input type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <FormField
-            control={form.control}
-            name="duration"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Duration (minutes)</FormLabel>
-                <FormControl>
-                  <Input type="number" min={1} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="totalMarks"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Total Marks</FormLabel>
-                <FormControl>
-                  <Input type="number" min={1} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="passingScore"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Passing Score</FormLabel>
-                <FormControl>
-                  <Input type="number" min={1} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description (Optional)</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Add any additional information about the exam..."
-                  className="h-20"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button type="submit">Create Exam</Button>
-        </div>
-      </form>
-    </Form>
+      </div>
+      
+      <div className="flex justify-end">
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Creating...' : 'Schedule Exam'}
+        </Button>
+      </div>
+    </form>
   );
 };
+
+export default CreateExamForm;

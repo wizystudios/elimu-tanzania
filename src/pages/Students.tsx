@@ -1,33 +1,85 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
-import { students, users } from '@/data/mockData';
 import { User, Search, Plus, Filter } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 const Students = () => {
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [selectedLevel, setSelectedLevel] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   
-  // Merge student data with user data
-  const studentsWithUserData = students.map(student => {
-    const userData = users.find(user => user.id === student.userId);
-    return {
-      ...student,
-      user: userData
-    };
+  const { data: students, isLoading } = useQuery({
+    queryKey: ['students', selectedLevel],
+    queryFn: async () => {
+      let query = supabase
+        .from('students')
+        .select(`
+          *,
+          profiles:user_id (
+            id,
+            first_name,
+            last_name,
+            email,
+            profile_image
+          ),
+          class:current_class_id (
+            name
+          )
+        `);
+      
+      if (selectedLevel) {
+        // Filter by education level if selected
+        query = query.eq('education_level', selectedLevel);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      // Fetch parent/guardian information for each student
+      // In a real app, this would come from a parent_students table or similar
+      const studentsWithGuardians = await Promise.all(data.map(async (student) => {
+        // Placeholder for guardian info - in a real app would fetch from parent_students table
+        // For now, just creating dummy guardian data
+        const guardianInfo = {
+          name: `Parent of ${student.profiles?.first_name || 'Student'}`,
+          relationship: Math.random() > 0.5 ? 'Father' : 'Mother',
+          contact: `+255 7${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`
+        };
+        
+        return {
+          ...student,
+          guardianInfo
+        };
+      }));
+      
+      return studentsWithGuardians;
+    }
   });
 
+  // Education level options for the filter
+  const educationLevels = [
+    { value: 'chekechea', label: 'Kindergarten' },
+    { value: 'darasa1', label: 'Standard 1' },
+    { value: 'darasa2', label: 'Standard 2' },
+    { value: 'darasa3', label: 'Standard 3' },
+    { value: 'darasa4', label: 'Standard 4' },
+    { value: 'darasa5', label: 'Standard 5' },
+    { value: 'darasa6', label: 'Standard 6' },
+    { value: 'darasa7', label: 'Standard 7' },
+    { value: 'form1', label: 'Form 1' },
+    { value: 'form2', label: 'Form 2' },
+    { value: 'form3', label: 'Form 3' },
+    { value: 'form4', label: 'Form 4' },
+    { value: 'form5', label: 'Form 5' },
+    { value: 'form6', label: 'Form 6' },
+  ];
+
   const getEducationLevelLabel = (level: string): string => {
-    if (level.startsWith('darasa')) {
-      const classNumber = level.replace('darasa', '');
-      return `Standard ${classNumber}`;
-    } else if (level.startsWith('form')) {
-      const formNumber = level.replace('form', '');
-      return `Form ${formNumber}`;
-    } else if (level === 'chekechea') {
-      return 'Kindergarten';
-    }
-    return level;
+    const educationLevel = educationLevels.find(el => el.value === level);
+    return educationLevel ? educationLevel.label : level;
   };
 
   const getEducationLevelBadgeColor = (level: string) => {
@@ -42,12 +94,13 @@ const Students = () => {
     }
   };
 
-  const filteredStudents = studentsWithUserData.filter((student) => {
-    const fullName = `${student.user?.firstName || ''} ${student.user?.lastName || ''}`.toLowerCase();
+  const filteredStudents = students?.filter((student) => {
+    const fullName = `${student.profiles?.first_name || ''} ${student.profiles?.last_name || ''}`.toLowerCase();
     const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || 
-                          student.registrationNumber.toLowerCase().includes(searchQuery.toLowerCase());
+                          student.registration_number.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesLevel = selectedLevel === null || student.educationLevel === selectedLevel;
+    // Always return true for level if nothing is selected
+    const matchesLevel = !selectedLevel || student.education_level === selectedLevel;
     
     return matchesSearch && matchesLevel;
   });
@@ -60,10 +113,13 @@ const Students = () => {
             <h1 className="text-2xl font-bold">Students</h1>
             <p className="text-gray-600">Manage all enrolled students</p>
           </div>
-          <button className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors">
+          <Link 
+            to="/students/add" 
+            className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
             <Plus className="h-5 w-5" />
             <span>Register Student</span>
-          </button>
+          </Link>
         </div>
 
         {/* Filters */}
@@ -89,108 +145,117 @@ const Students = () => {
                 >
                   All
                 </button>
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedLevel === 'chekechea' ? 'bg-amber-100 text-amber-800' : 'bg-white border border-gray-300 text-gray-600'}`}
-                  onClick={() => setSelectedLevel('chekechea')}
-                >
-                  Kindergarten
-                </button>
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedLevel === 'darasa4' ? 'bg-green-100 text-green-800' : 'bg-white border border-gray-300 text-gray-600'}`}
-                  onClick={() => setSelectedLevel('darasa4')}
-                >
-                  Standard 4
-                </button>
+                {educationLevels.map(level => (
+                  <button 
+                    key={level.value}
+                    className={`px-3 py-1 rounded-full ${selectedLevel === level.value ? getEducationLevelBadgeColor(level.value) : 'bg-white border border-gray-300 text-gray-600'}`}
+                    onClick={() => setSelectedLevel(level.value)}
+                  >
+                    {level.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
         {/* Students List */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Registration No.
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Level
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Class
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Guardian
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredStudents.map((student) => (
-                  <tr key={student.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0 mr-3">
-                          {student.user?.profileImage ? (
-                            <img
-                              className="h-10 w-10 rounded-full object-cover"
-                              src={student.user.profileImage}
-                              alt={`${student.user?.firstName} ${student.user?.lastName}`}
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center text-tanzanian-blue">
-                              <User className="h-5 w-5" />
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {student.user?.firstName} {student.user?.lastName}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {student.user?.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {student.registrationNumber}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getEducationLevelBadgeColor(student.educationLevel)}`}>
-                        {getEducationLevelLabel(student.educationLevel)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {student.currentClass}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{student.guardianInfo.name}</div>
-                      <div className="text-xs text-gray-500">{student.guardianInfo.relationship} • {student.guardianInfo.contact}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</button>
-                      <button className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</button>
-                      <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredStudents.length === 0 && (
-              <div className="text-center py-10">
-                <p className="text-gray-500">No students found matching your search criteria.</p>
-              </div>
-            )}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tanzanian-blue"></div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Student
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Registration No.
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Level
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Class
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Guardian
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredStudents && filteredStudents.length > 0 ? (
+                    filteredStudents.map((student) => (
+                      <tr key={student.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 flex-shrink-0 mr-3">
+                              {student.profiles?.profile_image ? (
+                                <img
+                                  className="h-10 w-10 rounded-full object-cover"
+                                  src={student.profiles.profile_image}
+                                  alt={`${student.profiles?.first_name} ${student.profiles?.last_name}`}
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center text-tanzanian-blue">
+                                  <User className="h-5 w-5" />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {student.profiles?.first_name} {student.profiles?.last_name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {student.profiles?.email}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.registration_number}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getEducationLevelBadgeColor(student.education_level)}`}>
+                            {getEducationLevelLabel(student.education_level)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {student.class?.name || 'Not assigned'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{student.guardianInfo.name}</div>
+                          <div className="text-xs text-gray-500">{student.guardianInfo.relationship} • {student.guardianInfo.contact}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <Link to={`/students/${student.id}`} className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</Link>
+                          <Link to={`/students/${student.id}/edit`} className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</Link>
+                          <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
+                        {searchQuery || selectedLevel ? 
+                          "No students found matching your search criteria." : 
+                          "No students have been enrolled yet."
+                        }
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );
