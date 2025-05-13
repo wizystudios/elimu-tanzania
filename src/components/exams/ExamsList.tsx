@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Exam } from '@/types';
 
-interface ExamsListProps {
+export interface ExamsListProps {
   exams: Exam[];
   title: string;
   isLoading?: boolean;

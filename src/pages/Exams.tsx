@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Exam } from '@/types';
 
-// Importing components correctly (without default exports)
+// Importing components with named imports (fixed import syntax)
 import { ExamsList } from '@/components/exams/ExamsList';
 import { ExamScheduleCalendar } from '@/components/exams/ExamScheduleCalendar';
 import CreateExamForm from '@/components/exams/CreateExamForm';
@@ -92,11 +92,11 @@ const Exams = () => {
           </TabsList>
           
           <TabsContent value="list" className="space-y-4">
-            <ExamsList exams={examsData || []} isLoading={isLoading} />
+            <ExamsList exams={examsData || []} isLoading={isLoading} title="All Examinations" />
           </TabsContent>
           
           <TabsContent value="calendar" className="space-y-4">
-            <ExamScheduleCalendar exams={examsData || []} isLoading={isLoading} />
+            <ExamScheduleCalendar exams={examsData || []} />
           </TabsContent>
           
           <TabsContent value="create" className="space-y-4" id="create-exam">

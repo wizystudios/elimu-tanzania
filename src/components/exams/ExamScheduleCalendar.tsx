@@ -13,9 +13,15 @@ import { Exam } from '@/types';
 
 interface ExamScheduleCalendarProps {
   exams: Exam[];
+  isLoading?: boolean; // Added isLoading prop as optional
 }
 
-export const ExamScheduleCalendar: React.FC<ExamScheduleCalendarProps> = ({ exams }) => {
+export const ExamScheduleCalendar: React.FC<ExamScheduleCalendarProps> = ({ exams, isLoading = false }) => {
+  // If loading, show a loading state
+  if (isLoading) {
+    return <div className="h-96 flex items-center justify-center">Loading exam schedule...</div>;
+  }
+
   const [currentDate, setCurrentDate] = useState(new Date());
   
   const startDate = startOfMonth(currentDate);
