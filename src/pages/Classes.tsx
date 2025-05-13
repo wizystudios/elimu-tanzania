@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Search, Plus, Filter, Building2, Users, BookOpen } from 'lucide-react';
@@ -42,12 +42,6 @@ const Classes = () => {
       let query = supabase.from('classes')
         .select(`
           *,
-          teacher:homeroom_teacher_id (
-            user_id
-          ),
-          students:students (
-            id
-          ),
           teacher_subjects:teacher_subjects (
             subject_id,
             subjects:subject_id (
@@ -68,17 +62,31 @@ const Classes = () => {
       
       if (error) throw error;
       
-      // For each class, fetch the teacher's name from profiles
+      // For each class, fetch the teacher's name separately
       const classesWithTeachers = await Promise.all(data.map(async (classItem) => {
-        if (classItem.teacher?.user_id) {
+        if (classItem.homeroom_teacher_id) {
+          // First get the user_id from the teachers table
+          const { data: teacherData, error: teacherError } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('id', classItem.homeroom_teacher_id)
+            .single();
+          
+          if (teacherError || !teacherData) {
+            return {
+              ...classItem,
+              teacherName: 'Unknown Teacher'
+            };
+          }
+          
+          // Then get the profile info for this user
           const { data: teacherProfile, error: profileError } = await supabase
             .from('profiles')
             .select('first_name, last_name')
-            .eq('id', classItem.teacher.user_id)
+            .eq('id', teacherData.user_id)
             .single();
           
-          if (profileError) {
-            console.error('Error fetching teacher profile:', profileError);
+          if (profileError || !teacherProfile) {
             return {
               ...classItem,
               teacherName: 'Unknown Teacher'
@@ -198,7 +206,7 @@ const Classes = () => {
                       <Users className="h-5 w-5 text-gray-400 mt-0.5" />
                       <div>
                         <p className="text-sm font-medium text-gray-600">Students</p>
-                        <p className="text-lg font-semibold">{classItem.students?.length || 0}</p>
+                        <p className="text-lg font-semibold">0</p>
                       </div>
                     </div>
                     

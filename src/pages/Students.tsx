@@ -17,45 +17,53 @@ const Students = () => {
         .from('students')
         .select(`
           *,
-          profiles:user_id (
-            id,
-            first_name,
-            last_name,
-            email,
-            profile_image
-          ),
           class:current_class_id (
-            name
+            name,
+            education_level
           )
         `);
       
       if (selectedLevel) {
-        // Filter by education level if selected
-        query = query.eq('education_level', selectedLevel);
+        // Apply education level filter from classes
+        const { data: classIds, error: classError } = await supabase
+          .from('classes')
+          .select('id')
+          .eq('education_level', selectedLevel);
+        
+        if (!classError && classIds && classIds.length > 0) {
+          const classIdList = classIds.map(c => c.id);
+          query = query.in('current_class_id', classIdList);
+        }
       }
       
       const { data, error } = await query;
       
       if (error) throw error;
       
-      // Fetch parent/guardian information for each student
-      // In a real app, this would come from a parent_students table or similar
-      const studentsWithGuardians = await Promise.all(data.map(async (student) => {
+      // Fetch student profiles separately
+      const studentsWithProfiles = await Promise.all(data.map(async (student) => {
+        // Get the profile information
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, email, profile_image')
+          .eq('id', student.user_id)
+          .single();
+        
         // Placeholder for guardian info - in a real app would fetch from parent_students table
-        // For now, just creating dummy guardian data
         const guardianInfo = {
-          name: `Parent of ${student.profiles?.first_name || 'Student'}`,
+          name: `Parent of ${profile?.first_name || 'Student'}`,
           relationship: Math.random() > 0.5 ? 'Father' : 'Mother',
           contact: `+255 7${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`
         };
         
         return {
           ...student,
+          profiles: profileError ? null : profile,
           guardianInfo
         };
       }));
       
-      return studentsWithGuardians;
+      return studentsWithProfiles;
     }
   });
 
@@ -99,8 +107,9 @@ const Students = () => {
     const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || 
                           student.registration_number.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Always return true for level if nothing is selected
-    const matchesLevel = !selectedLevel || student.education_level === selectedLevel;
+    // Education level is now determined from the class rather than directly on the student
+    const studentEducationLevel = student.class?.education_level;
+    const matchesLevel = !selectedLevel || studentEducationLevel === selectedLevel;
     
     return matchesSearch && matchesLevel;
   });
@@ -223,9 +232,11 @@ const Students = () => {
                           {student.registration_number}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getEducationLevelBadgeColor(student.education_level)}`}>
-                            {getEducationLevelLabel(student.education_level)}
-                          </span>
+                          {student.class?.education_level && (
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getEducationLevelBadgeColor(student.class.education_level)}`}>
+                              {getEducationLevelLabel(student.class.education_level)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {student.class?.name || 'Not assigned'}

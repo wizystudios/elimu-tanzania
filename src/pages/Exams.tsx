@@ -3,12 +3,14 @@ import React from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ExamsList from '@/components/exams/ExamsList';
-import ExamScheduleCalendar from '@/components/exams/ExamScheduleCalendar';
-import CreateExamForm from '@/components/exams/CreateExamForm';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Exam } from '@/types';
+
+// Importing components correctly (without default exports)
+import { ExamsList } from '@/components/exams/ExamsList';
+import { ExamScheduleCalendar } from '@/components/exams/ExamScheduleCalendar';
+import CreateExamForm from '@/components/exams/CreateExamForm';
 
 const Exams = () => {
   const { data: examsData, isLoading, refetch } = useQuery({
