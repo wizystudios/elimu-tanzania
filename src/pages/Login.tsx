@@ -16,8 +16,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { toast } from 'sonner';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { UserRole } from '@/types';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -31,7 +29,6 @@ const formSchema = z.object({
   password: z.string().min(6, {
     message: "Nenosiri lazima liwe na angalau herufi 6.",
   }),
-  role: z.enum(['admin', 'teacher', 'student', 'parent'] as const),
 });
 
 const Login = () => {
@@ -45,7 +42,6 @@ const Login = () => {
       school: "",
       email: "",
       password: "",
-      role: "teacher",
     },
   });
   
@@ -104,12 +100,11 @@ const Login = () => {
         return;
       }
       
-      // Check if user has the selected role
+      // Check if user has any role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
-        .select('role')
+        .select('role, teacher_role, school_id')
         .eq('user_id', authData.user.id)
-        .eq('role', data.role)
         .maybeSingle();
       
       if (roleError) {
@@ -119,18 +114,18 @@ const Login = () => {
       }
       
       if (!roleData) {
-        toast.error(`Huna jukumu la ${getRoleLabel(data.role as UserRole)} katika mfumo.`);
-        // Sign out since role doesn't match
+        toast.error(`Huna jukumu katika mfumo.`);
+        // Sign out since no role found
         await supabase.auth.signOut();
         return;
       }
       
       // Successful login
       toast.success("Umeingia kwa mafanikio!", {
-        description: `Karibu kwenye akaunti yako ya ${getRoleLabel(data.role as UserRole)}.`,
+        description: `Karibu kwenye akaunti yako ya ${getRoleLabel(roleData.role)}.`,
       });
       
-      // Redirect based on role
+      // Redirect to dashboard
       navigate('/dashboard');
       
     } catch (err) {
@@ -141,12 +136,17 @@ const Login = () => {
     }
   };
   
-  const getRoleLabel = (role: UserRole) => {
+  const getRoleLabel = (role: string) => {
     switch (role) {
       case 'admin': return 'Msimamizi';
       case 'teacher': return 'Mwalimu';
       case 'student': return 'Mwanafunzi';
       case 'parent': return 'Mzazi';
+      case 'super_admin': return 'Msimamizi Mkuu';
+      case 'headmaster': return 'Mwalimu Mkuu';
+      case 'vice_headmaster': return 'Makamu Mwalimu Mkuu';
+      case 'academic_teacher': return 'Mwalimu wa Taaluma';
+      case 'discipline_teacher': return 'Mwalimu wa Nidhamu';
       default: return role;
     }
   };
@@ -205,50 +205,6 @@ const Login = () => {
                 </>
               ) : (
                 <>
-                  <FormField
-                    control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem className="space-y-3">
-                        <FormLabel className="dark:text-gray-200">Jukumu Lako</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            className="flex flex-wrap gap-4"
-                            disabled={isLoading}
-                          >
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="admin" />
-                              </FormControl>
-                              <FormLabel className="font-normal dark:text-gray-300">Msimamizi</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="teacher" />
-                              </FormControl>
-                              <FormLabel className="font-normal dark:text-gray-300">Mwalimu</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="student" />
-                              </FormControl>
-                              <FormLabel className="font-normal dark:text-gray-300">Mwanafunzi</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="parent" />
-                              </FormControl>
-                              <FormLabel className="font-normal dark:text-gray-300">Mzazi</FormLabel>
-                            </FormItem>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                
                   <FormField
                     control={form.control}
                     name="email"

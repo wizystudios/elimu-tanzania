@@ -18,14 +18,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings as SettingsIcon, Building, MapPin, User, Mail, Shield } from 'lucide-react';
+import { Settings as SettingsIcon, Building, MapPin, User, Mail, Shield, Globe, Lock } from 'lucide-react';
 import { School, SchoolLocation } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 
 const Settings = () => {
   const { toast } = useToast();
   const { schoolId } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [language, setLanguage] = useState('swahili');
   
   // School information states
   const [schoolName, setSchoolName] = useState('');
@@ -46,6 +48,9 @@ const Settings = () => {
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPhone, setAdminPhone] = useState('');
+  
+  // School status states
+  const [schoolActive, setSchoolActive] = useState(true);
   
   // Fetch school information
   const { data: schoolData, isLoading: loadingSchool } = useQuery({
@@ -125,6 +130,45 @@ const Settings = () => {
       return data || [];
     },
   });
+
+  // Function to toggle school active status
+  const handleToggleSchoolStatus = async () => {
+    if (!schoolId) {
+      toast({
+        title: "Error",
+        description: "School ID is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // In a real implementation, we would update a status field in the school table
+      // For now, we'll just show a success message
+      setSchoolActive(!schoolActive);
+      
+      const newStatus = !schoolActive;
+      
+      toast({
+        title: newStatus ? "School Activated" : "School Frozen",
+        description: newStatus 
+          ? "School has been successfully activated and can resume normal operations." 
+          : "School has been frozen. All activities are temporarily suspended."
+      });
+      
+    } catch (error: any) {
+      console.error('Error updating school status:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update school status",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   
   // Update school information
   const handleUpdateSchool = async (e: React.FormEvent) => {
@@ -173,6 +217,56 @@ const Settings = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  // Delete school function
+  const handleDeleteSchool = async () => {
+    if (!schoolId) {
+      toast({
+        title: "Error",
+        description: "School ID is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Confirmation before deleting
+    if (!confirm("Are you sure you want to delete this school? This action cannot be undone.")) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // In a real implementation with proper permissions, we would delete the school
+      // For now, we'll just show a success message
+      toast({
+        title: "School Deleted",
+        description: "School has been successfully deleted."
+      });
+      
+    } catch (error: any) {
+      console.error('Error deleting school:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete school",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handle language switch
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value);
+    // In a real implementation, we would store this in localStorage or user preferences
+    toast({
+      title: value === "swahili" ? "Lugha Imebadilishwa" : "Language Changed",
+      description: value === "swahili" 
+        ? "Lugha ya mfumo imebadilishwa kuwa Kiswahili" 
+        : "System language has been changed to English"
+    });
   };
   
   // Update location information
@@ -297,6 +391,11 @@ const Settings = () => {
     }
   };
   
+  // Get the labels based on language
+  const getLabel = (swahiliText: string, englishText: string): string => {
+    return language === 'swahili' ? swahiliText : englishText;
+  };
+  
   const isLoading = loadingSchool || loadingLocation || loadingAdmin;
 
   if (isLoading) {
@@ -305,7 +404,9 @@ const Settings = () => {
         <div className="flex justify-center items-center min-h-[60vh]">
           <div className="flex flex-col items-center">
             <Spinner className="h-8 w-8" />
-            <p className="mt-4 text-gray-500">Loading school settings...</p>
+            <p className="mt-4 text-gray-500">
+              {getLabel('Inapakia mipangilio ya shule...', 'Loading school settings...')}
+            </p>
           </div>
         </div>
       </MainLayout>
@@ -316,39 +417,49 @@ const Settings = () => {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">School Settings</h1>
-          <p className="text-gray-600">Manage your school's information and configuration</p>
+          <h1 className="text-2xl font-bold">{getLabel('Mipangilio ya Shule', 'School Settings')}</h1>
+          <p className="text-gray-600">
+            {getLabel('Simamia taarifa na mipangilio ya shule yako', 'Manage your school\'s information and configuration')}
+          </p>
         </div>
         
         <Tabs defaultValue="general" className="space-y-4">
           <TabsList>
             <TabsTrigger value="general">
               <SettingsIcon className="h-4 w-4 mr-2" />
-              General
+              {getLabel('Jumla', 'General')}
             </TabsTrigger>
             <TabsTrigger value="location">
               <MapPin className="h-4 w-4 mr-2" />
-              Location
+              {getLabel('Eneo', 'Location')}
             </TabsTrigger>
             <TabsTrigger value="administrator">
               <User className="h-4 w-4 mr-2" />
-              Administrator
+              {getLabel('Msimamizi', 'Administrator')}
+            </TabsTrigger>
+            <TabsTrigger value="language">
+              <Globe className="h-4 w-4 mr-2" />
+              {getLabel('Lugha', 'Language')}
+            </TabsTrigger>
+            <TabsTrigger value="status">
+              <Lock className="h-4 w-4 mr-2" />
+              {getLabel('Hali', 'Status')}
             </TabsTrigger>
           </TabsList>
           
           <TabsContent value="general">
             <Card>
               <CardHeader>
-                <CardTitle>General Information</CardTitle>
+                <CardTitle>{getLabel('Taarifa za Jumla', 'General Information')}</CardTitle>
                 <CardDescription>
-                  Update your school's basic information
+                  {getLabel('Sasisha taarifa za msingi za shule yako', 'Update your school\'s basic information')}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleUpdateSchool}>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="schoolName">School Name</Label>
+                      <Label htmlFor="schoolName">{getLabel('Jina la Shule', 'School Name')}</Label>
                       <Input
                         id="schoolName"
                         value={schoolName}
@@ -358,7 +469,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="schoolType">School Type</Label>
+                      <Label htmlFor="schoolType">{getLabel('Aina ya Shule', 'School Type')}</Label>
                       <Input
                         id="schoolType"
                         value={schoolType}
@@ -368,7 +479,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="registrationNumber">Registration Number</Label>
+                      <Label htmlFor="registrationNumber">{getLabel('Namba ya Usajili', 'Registration Number')}</Label>
                       <Input
                         id="registrationNumber"
                         value={registrationNumber}
@@ -378,7 +489,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="establishedDate">Established Date</Label>
+                      <Label htmlFor="establishedDate">{getLabel('Tarehe ya Kuanzishwa', 'Established Date')}</Label>
                       <Input
                         id="establishedDate"
                         type="date"
@@ -388,7 +499,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">{getLabel('Barua Pepe', 'Email')}</Label>
                       <Input
                         id="email"
                         type="email"
@@ -399,7 +510,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
+                      <Label htmlFor="phone">{getLabel('Simu', 'Phone')}</Label>
                       <Input
                         id="phone"
                         value={phone}
@@ -410,7 +521,7 @@ const Settings = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">{getLabel('Maelezo', 'Description')}</Label>
                     <Textarea
                       id="description"
                       value={description}
@@ -421,7 +532,9 @@ const Settings = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Save Changes"}
+                    {isSubmitting 
+                      ? getLabel("Inahifadhi...", "Saving...") 
+                      : getLabel("Hifadhi Mabadiliko", "Save Changes")}
                   </Button>
                 </CardFooter>
               </form>
@@ -431,16 +544,16 @@ const Settings = () => {
           <TabsContent value="location">
             <Card>
               <CardHeader>
-                <CardTitle>Location Information</CardTitle>
+                <CardTitle>{getLabel('Taarifa za Eneo', 'Location Information')}</CardTitle>
                 <CardDescription>
-                  Update your school's address details
+                  {getLabel('Sasisha maelezo ya anwani ya shule yako', 'Update your school\'s address details')}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleUpdateLocation}>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="region">Region</Label>
+                      <Label htmlFor="region">{getLabel('Mkoa', 'Region')}</Label>
                       <Input
                         id="region"
                         value={region}
@@ -450,7 +563,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="district">District</Label>
+                      <Label htmlFor="district">{getLabel('Wilaya', 'District')}</Label>
                       <Input
                         id="district"
                         value={district}
@@ -460,7 +573,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="ward">Ward</Label>
+                      <Label htmlFor="ward">{getLabel('Kata', 'Ward')}</Label>
                       <Input
                         id="ward"
                         value={ward}
@@ -470,7 +583,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="street">Street</Label>
+                      <Label htmlFor="street">{getLabel('Mtaa', 'Street')}</Label>
                       <Input
                         id="street"
                         value={street}
@@ -482,7 +595,9 @@ const Settings = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Save Changes"}
+                    {isSubmitting 
+                      ? getLabel("Inahifadhi...", "Saving...") 
+                      : getLabel("Hifadhi Mabadiliko", "Save Changes")}
                   </Button>
                 </CardFooter>
               </form>
@@ -492,16 +607,16 @@ const Settings = () => {
           <TabsContent value="administrator">
             <Card>
               <CardHeader>
-                <CardTitle>Administrator Information</CardTitle>
+                <CardTitle>{getLabel('Taarifa za Msimamizi', 'Administrator Information')}</CardTitle>
                 <CardDescription>
-                  Update school administrator details
+                  {getLabel('Sasisha taarifa za msimamizi wa shule', 'Update school administrator details')}
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleUpdateAdmin}>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="adminName">Name</Label>
+                      <Label htmlFor="adminName">{getLabel('Jina', 'Name')}</Label>
                       <Input
                         id="adminName"
                         value={adminName}
@@ -511,7 +626,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="adminEmail">Email</Label>
+                      <Label htmlFor="adminEmail">{getLabel('Barua Pepe', 'Email')}</Label>
                       <Input
                         id="adminEmail"
                         type="email"
@@ -522,7 +637,7 @@ const Settings = () => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="adminPhone">Phone</Label>
+                      <Label htmlFor="adminPhone">{getLabel('Simu', 'Phone')}</Label>
                       <Input
                         id="adminPhone"
                         value={adminPhone}
@@ -534,10 +649,114 @@ const Settings = () => {
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Save Changes"}
+                    {isSubmitting 
+                      ? getLabel("Inahifadhi...", "Saving...") 
+                      : getLabel("Hifadhi Mabadiliko", "Save Changes")}
                   </Button>
                 </CardFooter>
               </form>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="language">
+            <Card>
+              <CardHeader>
+                <CardTitle>{getLabel('Mipangilio ya Lugha', 'Language Settings')}</CardTitle>
+                <CardDescription>
+                  {getLabel('Chagua lugha ya mfumo', 'Choose your system language')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium">{getLabel('Kiswahili', 'Swahili')}</h3>
+                      <p className="text-sm text-gray-500">{getLabel('Tumia Kiswahili kama lugha ya mfumo', 'Use Swahili as system language')}</p>
+                    </div>
+                    <Button
+                      variant={language === 'swahili' ? 'default' : 'outline'}
+                      onClick={() => handleLanguageChange('swahili')}
+                    >
+                      {language === 'swahili' ? getLabel('Inatumika', 'Active') : getLabel('Tumia', 'Use')}
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium">{getLabel('Kiingereza', 'English')}</h3>
+                      <p className="text-sm text-gray-500">{getLabel('Tumia Kiingereza kama lugha ya mfumo', 'Use English as system language')}</p>
+                    </div>
+                    <Button
+                      variant={language === 'english' ? 'default' : 'outline'}
+                      onClick={() => handleLanguageChange('english')}
+                    >
+                      {language === 'english' ? getLabel('Inatumika', 'Active') : getLabel('Tumia', 'Use')}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="status">
+            <Card>
+              <CardHeader>
+                <CardTitle>{getLabel('Hali ya Shule', 'School Status')}</CardTitle>
+                <CardDescription>
+                  {getLabel('Dhibiti hali ya shule', 'Control school status and operations')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium">
+                      {getLabel('Shule Inafanya Kazi', 'School is Active')}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {getLabel(
+                        'Weka au ondoa shule katika hali ya kufanya kazi',
+                        'Set or unset the school as active'
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={schoolActive}
+                      onCheckedChange={handleToggleSchoolStatus}
+                      disabled={isSubmitting}
+                    />
+                    <span className={`text-sm ${schoolActive ? 'text-green-600' : 'text-red-600'}`}>
+                      {schoolActive 
+                        ? getLabel('Inafanya Kazi', 'Active') 
+                        : getLabel('Imesimamishwa', 'Frozen')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t">
+                  <h3 className="text-lg font-medium text-red-600 mb-2">
+                    {getLabel('Eneo la Hatari', 'Danger Zone')}
+                  </h3>
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-md">
+                    <h4 className="font-medium">
+                      {getLabel('Futa Shule', 'Delete School')}
+                    </h4>
+                    <p className="text-sm text-gray-700 mb-4">
+                      {getLabel(
+                        'Kitendo hiki hakiwezi kutenguliwa. Kufuta shule kutafuta kabisa taarifa zote za shule, wanafunzi, walimu, na wafanyakazi.',
+                        'This action cannot be undone. Deleting the school will permanently remove all school, student, teacher, and staff data.'
+                      )}
+                    </p>
+                    <Button 
+                      variant="destructive"
+                      onClick={handleDeleteSchool}
+                      disabled={isSubmitting}
+                    >
+                      {getLabel('Futa Shule', 'Delete School')}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

@@ -37,6 +37,7 @@ import CreateAnnouncement from "./pages/CreateAnnouncement";
 import Messages from "./pages/Messages";
 import Settings from "./pages/Settings";
 import Calendar from "./pages/Calendar";
+import AddEvent from "./pages/AddEvent";
 
 const queryClient = new QueryClient();
 
@@ -171,6 +172,11 @@ const AppWithProviders = () => (
         <Route path="/calendar" element={
           <ProtectedRoute>
             <Calendar />
+          </ProtectedRoute>
+        } />
+        <Route path="/calendar/add" element={
+          <ProtectedRoute>
+            <AddEvent />
           </ProtectedRoute>
         } />
         <Route path="/announcements" element={

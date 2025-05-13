@@ -1,171 +1,146 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 
-// Define education levels
 const EDUCATION_LEVELS = [
-  { value: 'chekechea', label: 'Chekechea (Kindergarten)' },
-  { value: 'darasa1', label: 'Darasa la 1 (Grade 1)' },
-  { value: 'darasa2', label: 'Darasa la 2 (Grade 2)' },
-  { value: 'darasa3', label: 'Darasa la 3 (Grade 3)' },
-  { value: 'darasa4', label: 'Darasa la 4 (Grade 4)' },
-  { value: 'darasa5', label: 'Darasa la 5 (Grade 5)' },
-  { value: 'darasa6', label: 'Darasa la 6 (Grade 6)' },
-  { value: 'darasa7', label: 'Darasa la 7 (Grade 7)' },
-  { value: 'form1', label: 'Kidato cha 1 (Form 1)' },
-  { value: 'form2', label: 'Kidato cha 2 (Form 2)' },
-  { value: 'form3', label: 'Kidato cha 3 (Form 3)' },
-  { value: 'form4', label: 'Kidato cha 4 (Form 4)' },
-  { value: 'form5', label: 'Kidato cha 5 (Form 5)' },
-  { value: 'form6', label: 'Kidato cha 6 (Form 6)' }
+  { value: 'kindergarten', label: 'Chekechea' },
+  { value: 'primary', label: 'Shule ya Msingi' },
+  { value: 'secondary', label: 'Shule ya Sekondari' },
+  { value: 'advanced', label: 'Kidato cha Tano na Sita' },
 ];
 
-interface TeacherWithProfile {
-  user_id: string;
-  profiles?: {
-    first_name?: string;
-    last_name?: string;
-  } | null;
+interface Teacher {
+  id: string;
+  name: string;
 }
 
 const CreateClass = () => {
-  const { schoolId } = useAuth();
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  
   const [className, setClassName] = useState('');
   const [educationLevel, setEducationLevel] = useState('');
-  const [academicYear, setAcademicYear] = useState(`${new Date().getFullYear()}-${new Date().getFullYear() + 1}`);
-  const [homeroomTeacher, setHomeroomTeacher] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [academicYear, setAcademicYear] = useState('');
+  const [teacherId, setTeacherId] = useState('');
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { schoolId } = useAuth();
   
-  // Generate academic years (current year-1 to current year+3)
-  const currentYear = new Date().getFullYear();
-  const academicYears = Array.from({ length: 5 }, (_, i) => {
-    const year = currentYear + i - 1;
-    return `${year}-${year + 1}`;
-  });
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
   
-  // Fetch teachers
-  const { data: teachers } = useQuery({
-    queryKey: ['teachers', schoolId],
-    queryFn: async () => {
-      if (!schoolId) return [];
+  const fetchTeachers = async () => {
+    try {
+      if (!schoolId) return;
       
       const { data, error } = await supabase
         .from('user_roles')
         .select(`
+          id,
           user_id,
-          profiles:user_id (
-            first_name,
-            last_name
-          )
+          profiles:user_id (first_name, last_name)
         `)
-        .eq('school_id', schoolId)
-        .eq('role', 'teacher');
+        .eq('role', 'teacher')
+        .eq('school_id', schoolId);
         
       if (error) throw error;
       
-      // TypeScript assertion to help with type safety
-      const typedTeacherRoles = data as TeacherWithProfile[];
-      
-      return typedTeacherRoles
-        .filter(teacher => teacher.profiles)
-        .map(teacher => ({
+      if (data) {
+        const formattedTeachers = data.map(teacher => ({
           id: teacher.user_id,
-          name: `${teacher.profiles?.first_name || ''} ${teacher.profiles?.last_name || ''}`.trim() || 'Unknown Teacher',
-        })) || [];
-    },
-  });
+          name: `${teacher.profiles?.first_name || ''} ${teacher.profiles?.last_name || ''}`.trim(),
+        }));
+        
+        setTeachers(formattedTeachers);
+      }
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+      toast.error('Failed to load teachers');
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!schoolId) {
-      toast({
-        title: "Error",
-        description: "School information is missing",
-        variant: "destructive"
-      });
+    if (!className || !educationLevel || !academicYear) {
+      toast.error('Please fill all required fields');
       return;
     }
     
-    if (!className || !educationLevel || !academicYear) {
-      toast({
-        title: "Missing Fields",
-        description: "Please fill out all required fields",
-        variant: "destructive"
-      });
+    if (!schoolId) {
+      toast.error('School ID is missing');
       return;
     }
+    
+    setLoading(true);
     
     try {
-      setIsSubmitting(true);
-      
+      // Insert class data
       const { data, error } = await supabase
         .from('classes')
         .insert({
           name: className,
           education_level: educationLevel,
           academic_year: academicYear,
-          homeroom_teacher_id: homeroomTeacher || null,
-          school_id: schoolId
+          school_id: schoolId,
+          homeroom_teacher_id: teacherId === 'none' ? null : teacherId || null,
         })
-        .select('id')
-        .single();
+        .select();
         
       if (error) throw error;
       
-      toast({
-        title: "Success",
-        description: `Class ${className} has been created successfully.`,
-      });
+      toast.success('Class created successfully');
       
-      navigate('/classes');
+      // Reset form
+      setClassName('');
+      setEducationLevel('');
+      setAcademicYear('');
+      setTeacherId('');
       
     } catch (error: any) {
       console.error('Error creating class:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create class. Please try again.",
-        variant: "destructive"
-      });
+      toast.error(`Failed to create class: ${error.message}`);
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
+  
+  const currentYear = new Date().getFullYear();
+  const academicYears = [];
+  for (let i = -1; i <= 3; i++) {
+    const year = currentYear + i;
+    academicYears.push(`${year}/${year + 1}`);
+  }
   
   return (
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Create New Class</h1>
-          <p className="text-gray-600">Add a new class to your school</p>
+          <h1 className="text-2xl font-bold">Ongeza Darasa Jipya</h1>
+          <p className="text-gray-600">Create a new class for your school</p>
         </div>
         
         <Card>
           <CardHeader>
-            <CardTitle>Class Details</CardTitle>
-            <CardDescription>Enter the information for the new class</CardDescription>
+            <CardTitle>Class Information</CardTitle>
+            <CardDescription>
+              Enter the details for the new class
+            </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="className">Class Name</Label>
+                  <Label htmlFor="className">Class Name*</Label>
                   <Input
                     id="className"
-                    placeholder="e.g., 1A, Form 1 East"
+                    placeholder="e.g. Form 1A or Standard 3"
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
                     required
@@ -173,11 +148,8 @@ const CreateClass = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="educationLevel">Education Level</Label>
-                  <Select
-                    value={educationLevel}
-                    onValueChange={setEducationLevel}
-                  >
+                  <Label htmlFor="educationLevel">Education Level*</Label>
+                  <Select value={educationLevel} onValueChange={setEducationLevel} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select education level" />
                     </SelectTrigger>
@@ -192,11 +164,8 @@ const CreateClass = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="academicYear">Academic Year</Label>
-                  <Select
-                    value={academicYear}
-                    onValueChange={setAcademicYear}
-                  >
+                  <Label htmlFor="academicYear">Academic Year*</Label>
+                  <Select value={academicYear} onValueChange={setAcademicYear} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select academic year" />
                     </SelectTrigger>
@@ -211,16 +180,12 @@ const CreateClass = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="homeroomTeacher">Homeroom Teacher (Optional)</Label>
-                  <Select
-                    value={homeroomTeacher}
-                    onValueChange={setHomeroomTeacher}
-                  >
+                  <Label htmlFor="homeRoomTeacher">Homeroom Teacher</Label>
+                  <Select value={teacherId} onValueChange={setTeacherId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select teacher (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Fix here - make sure there's a non-empty value prop */}
                       <SelectItem value="none">None</SelectItem>
                       {teachers?.map((teacher) => (
                         <SelectItem key={teacher.id} value={teacher.id}>
@@ -233,8 +198,8 @@ const CreateClass = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Create Class'}
+              <Button type="submit" disabled={loading}>
+                {loading ? "Creating..." : "Create Class"}
               </Button>
             </CardFooter>
           </form>
