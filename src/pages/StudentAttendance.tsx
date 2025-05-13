@@ -15,6 +15,17 @@ import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/spinner';
 
+interface StudentWithProfile {
+  id: string;
+  user_id: string;
+  registration_number: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    profile_image?: string;
+  } | null;
+}
+
 const StudentAttendance = () => {
   const { toast } = useToast();
   const { schoolId, userRole } = useAuth();
@@ -47,7 +58,7 @@ const StudentAttendance = () => {
   });
 
   // Fetch students for the selected class
-  const { data: students, isLoading: loadingStudents } = useQuery({
+  const { data: students, isLoading: loadingStudents } = useQuery<StudentWithProfile[]>({
     queryKey: ['students_in_class', selectedClass],
     queryFn: async () => {
       if (!selectedClass) return [];
@@ -68,7 +79,7 @@ const StudentAttendance = () => {
         .eq('school_id', schoolId);
         
       if (error) throw error;
-      return data || [];
+      return (data || []) as StudentWithProfile[];
     },
     enabled: !!selectedClass
   });
@@ -143,11 +154,15 @@ const StudentAttendance = () => {
     try {
       setIsSaving(true);
       const dateString = selectedDate.toISOString().split('T')[0];
-      const { user } = await supabase.auth.getUser();
       
-      if (!user?.id) {
+      // We need to get the user ID differently now
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData?.session?.user?.id) {
         throw new Error("User authentication required");
       }
+      
+      const userId = sessionData.session.user.id;
 
       // Process each student's attendance
       for (const [studentId, record] of Object.entries(attendanceData)) {
@@ -161,7 +176,7 @@ const StudentAttendance = () => {
               status: record.status,
               notes: record.notes,
               updated_at: new Date().toISOString(),
-              marked_by: user.id
+              marked_by: userId
             })
             .eq('id', record.id);
 
@@ -177,7 +192,7 @@ const StudentAttendance = () => {
               date: dateString,
               status: record.status,
               notes: record.notes,
-              marked_by: user.id
+              marked_by: userId
             });
 
           if (error) throw error;
@@ -312,7 +327,7 @@ const StudentAttendance = () => {
                               {student.profiles?.profile_image ? (
                                 <img 
                                   src={student.profiles.profile_image} 
-                                  alt={`${student.profiles.first_name} ${student.profiles.last_name}`}
+                                  alt={`${student.profiles?.first_name || ''} ${student.profiles?.last_name || ''}`}
                                   className="h-10 w-10 rounded-full object-cover" 
                                 />
                               ) : (
@@ -321,7 +336,7 @@ const StudentAttendance = () => {
                             </div>
                             <div>
                               <p className="font-medium">
-                                {student.profiles?.first_name} {student.profiles?.last_name}
+                                {student.profiles?.first_name || 'Unknown'} {student.profiles?.last_name || 'Student'}
                               </p>
                             </div>
                           </div>

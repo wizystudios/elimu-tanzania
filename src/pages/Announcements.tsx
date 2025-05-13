@@ -14,6 +14,22 @@ import { format } from 'date-fns';
 import { Spinner } from '@/components/ui/spinner';
 import { Link, useNavigate } from 'react-router-dom';
 
+// Define a type for the announcement with profiles
+interface AnnouncementWithProfile {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  is_important: boolean;
+  recipient_type: string;
+  sender_id: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    profile_image?: string;
+  } | null;
+}
+
 const Announcements = () => {
   const { schoolId } = useAuth();
   const navigate = useNavigate();
@@ -46,7 +62,9 @@ const Announcements = () => {
         .order('created_at', { ascending: false });
         
       if (error) throw error;
-      return data || [];
+      
+      // Ensure the data is correctly typed
+      return (data || []) as AnnouncementWithProfile[];
     }
   });
 
@@ -168,7 +186,7 @@ const Announcements = () => {
                             {announcement.profiles?.profile_image ? (
                               <img 
                                 src={announcement.profiles.profile_image} 
-                                alt={`${announcement.profiles.first_name} ${announcement.profiles.last_name}`}
+                                alt={`${announcement.profiles.first_name || ''} ${announcement.profiles.last_name || ''}`}
                                 className="h-10 w-10 rounded-full object-cover"
                               />
                             ) : (

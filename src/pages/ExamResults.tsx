@@ -2,93 +2,148 @@
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Check, Search, User, FileText, ArrowRightLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Spinner } from '@/components/ui/spinner';
-import { format } from 'date-fns';
+
+// Define interfaces for students and exams with their relations
+interface StudentWithProfile {
+  id: string;
+  registration_number: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+  } | null;
+}
+
+interface ExamResult {
+  id: string;
+  exam_id: string;
+  student_id: string;
+  marks_obtained: number;
+  comments: string | null;
+  recorded_by: string;
+  recorder_profile?: {
+    first_name?: string;
+    last_name?: string;
+  } | null;
+  student?: StudentWithProfile;
+}
 
 const ExamResults = () => {
   const { toast } = useToast();
-  const { schoolId, user } = useAuth();
+  const { schoolId } = useAuth();
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedExam, setSelectedExam] = useState<string>('');
-  const [selectedStudent, setSelectedStudent] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [marks, setMarks] = useState<number | ''>('');
-  const [comments, setComments] = useState('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('view');
+  const [resultsData, setResultsData] = useState<Record<string, { marks: string; comments: string }>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Fetch exams
-  const { data: exams, isLoading: loadingExams } = useQuery({
-    queryKey: ['exams', schoolId],
+  
+  // Fetch classes
+  const { data: classes, isLoading: loadingClasses } = useQuery({
+    queryKey: ['classes', schoolId],
     queryFn: async () => {
       if (!schoolId) return [];
       
       const { data, error } = await supabase
-        .from('exams')
-        .select(`
-          id, 
-          title,
-          exam_date,
-          total_marks,
-          passing_score,
-          classes(name),
-          subjects(name, code)
-        `)
+        .from('classes')
+        .select('id, name')
         .eq('school_id', schoolId)
-        .order('exam_date', { ascending: false });
+        .order('name');
         
       if (error) throw error;
       return data || [];
     }
   });
-
-  // Fetch students for the selected exam's class
-  const { data: students, isLoading: loadingStudents } = useQuery({
-    queryKey: ['students_for_exam', selectedExam],
+  
+  // Fetch subjects based on selected class
+  const { data: subjects, isLoading: loadingSubjects } = useQuery({
+    queryKey: ['subjects', selectedClass],
     queryFn: async () => {
-      if (!selectedExam) return [];
+      if (!selectedClass || !schoolId) return [];
       
-      // First get the exam to find its class
-      const { data: exam, error: examError } = await supabase
-        .from('exams')
-        .select('class_id')
-        .eq('id', selectedExam)
+      // First get the education level of the selected class
+      const { data: classData, error: classError } = await supabase
+        .from('classes')
+        .select('education_level')
+        .eq('id', selectedClass)
         .single();
         
-      if (examError) throw examError;
+      if (classError || !classData) return [];
       
-      // Then get students in that class
+      // Then fetch subjects applicable for this education level
+      const { data, error } = await supabase
+        .from('subjects')
+        .select('id, name, code')
+        .eq('school_id', schoolId)
+        .contains('applicable_levels', [classData.education_level])
+        .order('name');
+        
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedClass && !!schoolId
+  });
+  
+  // Fetch exams based on selected class and subject
+  const { data: exams, isLoading: loadingExams } = useQuery({
+    queryKey: ['exams', selectedClass, selectedSubject],
+    queryFn: async () => {
+      if (!selectedClass || !selectedSubject || !schoolId) return [];
+      
+      const { data, error } = await supabase
+        .from('exams')
+        .select('id, title, exam_date, total_marks')
+        .eq('school_id', schoolId)
+        .eq('class_id', selectedClass)
+        .eq('subject_id', selectedSubject)
+        .order('exam_date', { ascending: false });
+        
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedClass && !!selectedSubject && !!schoolId
+  });
+  
+  // Fetch students in the selected class
+  const { data: students, isLoading: loadingStudents } = useQuery<StudentWithProfile[]>({
+    queryKey: ['students_in_class', selectedClass],
+    queryFn: async () => {
+      if (!selectedClass || !schoolId) return [];
+      
       const { data, error } = await supabase
         .from('students')
         .select(`
           id,
           registration_number,
           profiles:user_id (
-            first_name, 
-            last_name,
-            profile_image
+            first_name,
+            last_name
           )
         `)
-        .eq('current_class_id', exam.class_id)
-        .eq('school_id', schoolId);
+        .eq('current_class_id', selectedClass)
+        .eq('school_id', schoolId)
+        .order('registration_number');
         
       if (error) throw error;
-      return data || [];
+      return data as StudentWithProfile[];
     },
-    enabled: !!selectedExam
+    enabled: !!selectedClass && !!schoolId
   });
-
-  // Fetch existing results for this exam
-  const { data: examResults, isLoading: loadingResults, refetch: refetchResults } = useQuery({
+  
+  // Fetch existing exam results
+  const { data: examResults, isLoading: loadingResults, refetch: refetchResults } = useQuery<ExamResult[]>({
     queryKey: ['exam_results', selectedExam],
     queryFn: async () => {
       if (!selectedExam) return [];
@@ -97,453 +152,519 @@ const ExamResults = () => {
         .from('exam_results')
         .select(`
           id,
+          exam_id,
           student_id,
           marks_obtained,
           comments,
           recorded_by,
-          updated_at,
-          profiles:recorded_by (first_name, last_name)
+          recorder_profile:recorded_by (
+            first_name,
+            last_name
+          )
         `)
         .eq('exam_id', selectedExam);
         
       if (error) throw error;
-      return data || [];
+      
+      // Prepare data for input fields
+      const resultsObject: Record<string, { marks: string; comments: string }> = {};
+      data.forEach(result => {
+        resultsObject[result.student_id] = {
+          marks: result.marks_obtained.toString(),
+          comments: result.comments || ''
+        };
+      });
+      setResultsData(resultsObject);
+      
+      return data as ExamResult[];
     },
     enabled: !!selectedExam
   });
-
-  // Find the student's result if it exists
-  const findStudentResult = () => {
-    if (!examResults || !selectedStudent) return null;
-    return examResults.find(result => result.student_id === selectedStudent);
+  
+  // Fetch exam details
+  const { data: examDetails } = useQuery({
+    queryKey: ['exam_details', selectedExam],
+    queryFn: async () => {
+      if (!selectedExam) return null;
+      
+      const { data, error } = await supabase
+        .from('exams')
+        .select('title, total_marks, passing_score')
+        .eq('id', selectedExam)
+        .single();
+        
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedExam
+  });
+  
+  // Handle mark input change
+  const handleMarkChange = (studentId: string, value: string) => {
+    // Only allow numbers
+    const marks = value.replace(/[^0-9]/g, '');
+    
+    setResultsData(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId] || { comments: '' },
+        marks
+      }
+    }));
   };
-
-  // Handle record/update result
-  const handleRecordResult = async () => {
-    if (!selectedExam || !selectedStudent || marks === '') {
+  
+  // Handle comment input change
+  const handleCommentChange = (studentId: string, comments: string) => {
+    setResultsData(prev => ({
+      ...prev,
+      [studentId]: {
+        ...prev[studentId] || { marks: '' },
+        comments
+      }
+    }));
+  };
+  
+  // Save exam results
+  const handleSaveResults = async () => {
+    if (!selectedExam || !schoolId) {
       toast({
         title: "Error",
-        description: "Please select an exam, student, and enter the marks.",
+        description: "Please select an exam first",
         variant: "destructive"
       });
       return;
     }
-    
-    if (!user?.id) {
-      toast({
-        title: "Error",
-        description: "You need to be logged in to record results.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const existingResult = findStudentResult();
     
     try {
       setIsSubmitting(true);
       
-      if (existingResult) {
-        // Update existing result
-        const { error } = await supabase
-          .from('exam_results')
-          .update({
-            marks_obtained: marks,
-            comments,
-            recorded_by: user.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingResult.id);
-          
-        if (error) throw error;
-        
-        toast({
-          title: "Success",
-          description: "Exam result updated successfully."
-        });
-      } else {
-        // Create new result
-        const { error } = await supabase
-          .from('exam_results')
-          .insert({
-            exam_id: selectedExam,
-            student_id: selectedStudent,
-            marks_obtained: marks,
-            comments,
-            recorded_by: user.id
-          });
-          
-        if (error) throw error;
-        
-        toast({
-          title: "Success",
-          description: "Exam result recorded successfully."
-        });
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData?.session?.user?.id) {
+        throw new Error("User authentication required");
       }
       
-      // Reset form and refresh results
-      setMarks('');
-      setComments('');
-      setSelectedStudent('');
+      const userId = sessionData.session.user.id;
+      
+      // Get existing results to determine which to update vs. insert
+      const { data: existingResults, error: fetchError } = await supabase
+        .from('exam_results')
+        .select('id, student_id')
+        .eq('exam_id', selectedExam);
+        
+      if (fetchError) throw fetchError;
+      
+      const existingMap: Record<string, string> = {};
+      existingResults?.forEach(result => {
+        existingMap[result.student_id] = result.id;
+      });
+      
+      // Process each student's results
+      const operations = [];
+      for (const [studentId, data] of Object.entries(resultsData)) {
+        if (!data.marks) continue; // Skip if no marks entered
+        
+        const marks = parseInt(data.marks, 10);
+        if (isNaN(marks)) continue; // Skip if marks are not a valid number
+        
+        if (existingMap[studentId]) {
+          // Update existing result
+          operations.push(
+            supabase
+              .from('exam_results')
+              .update({
+                marks_obtained: marks,
+                comments: data.comments || null,
+                recorded_by: userId,
+              })
+              .eq('id', existingMap[studentId])
+          );
+        } else {
+          // Insert new result
+          operations.push(
+            supabase
+              .from('exam_results')
+              .insert({
+                exam_id: selectedExam,
+                student_id: studentId,
+                marks_obtained: marks,
+                comments: data.comments || null,
+                recorded_by: userId,
+              })
+          );
+        }
+      }
+      
+      // Execute all operations
+      await Promise.all(operations.map(op => op));
+      
+      toast({
+        title: "Success",
+        description: "Exam results have been saved successfully."
+      });
+      
+      // Refresh results data
       refetchResults();
       
     } catch (error: any) {
-      console.error('Error recording result:', error);
+      console.error('Error saving exam results:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to record result. Please try again.",
+        description: error.message || "Failed to save exam results",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  // Filter students based on search query
+  
+  // Get student result or empty object
+  const getStudentResult = (studentId: string) => {
+    return resultsData[studentId] || { marks: '', comments: '' };
+  };
+  
+  // Filter students by search query
   const filteredStudents = students?.filter(student => {
     const fullName = `${student.profiles?.first_name || ''} ${student.profiles?.last_name || ''}`.toLowerCase();
     const regNumber = student.registration_number.toLowerCase();
+    const query = searchQuery.toLowerCase();
     
-    return fullName.includes(searchQuery.toLowerCase()) || 
-           regNumber.includes(searchQuery.toLowerCase());
+    return fullName.includes(query) || regNumber.includes(query);
   });
-
-  // Select a student and populate form if result exists
-  const selectStudent = (studentId: string) => {
-    setSelectedStudent(studentId);
+  
+  // Combine students with their results for the results view tab
+  const studentsWithResults = students?.map(student => {
+    const result = examResults?.find(r => r.student_id === student.id);
+    return {
+      ...student,
+      result
+    };
+  }).filter(student => {
+    if (!searchQuery) return true;
     
-    // Check if result already exists for this student
-    const existingResult = examResults?.find(result => result.student_id === studentId);
+    const fullName = `${student.profiles?.first_name || ''} ${student.profiles?.last_name || ''}`.toLowerCase();
+    const regNumber = student.registration_number.toLowerCase();
+    const query = searchQuery.toLowerCase();
     
-    if (existingResult) {
-      setMarks(existingResult.marks_obtained);
-      setComments(existingResult.comments || '');
-    } else {
-      setMarks('');
-      setComments('');
-    }
-  };
-
-  // Get selected exam details
-  const selectedExamDetails = exams?.find(exam => exam.id === selectedExam);
-
-  const isLoading = loadingExams || loadingStudents || loadingResults;
+    return fullName.includes(query) || regNumber.includes(query);
+  });
+  
+  // Loading states
+  const isLoadingData = loadingClasses || loadingSubjects || loadingExams || loadingStudents || loadingResults;
 
   return (
     <MainLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Exam Results</h1>
-          <p className="text-gray-600">Record and view examination results</p>
+          <p className="text-gray-600">Record and view student examination results</p>
         </div>
         
-        <Tabs defaultValue="record" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="record">Record Results</TabsTrigger>
-            <TabsTrigger value="view">View Results</TabsTrigger>
-          </TabsList>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="class-select">Class</Label>
+            <Select
+              value={selectedClass}
+              onValueChange={(value) => {
+                setSelectedClass(value);
+                setSelectedSubject('');
+                setSelectedExam('');
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select class" />
+              </SelectTrigger>
+              <SelectContent>
+                {classes?.map((classItem) => (
+                  <SelectItem key={classItem.id} value={classItem.id}>
+                    {classItem.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           
-          <TabsContent value="record" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Record Exam Results</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="exam">Select Exam</Label>
-                    <Select
-                      value={selectedExam}
-                      onValueChange={setSelectedExam}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={loadingExams ? "Loading exams..." : "Select an exam"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {exams?.map(exam => (
-                          <SelectItem key={exam.id} value={exam.id}>
-                            {exam.title} - {exam.subjects?.name} ({format(new Date(exam.exam_date), 'dd/MM/yyyy')})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {selectedExamDetails && (
-                    <Card className="bg-gray-50">
-                      <CardContent className="pt-4">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="font-semibold">Subject:</span> {selectedExamDetails.subjects?.name} ({selectedExamDetails.subjects?.code})
-                          </div>
-                          <div>
-                            <span className="font-semibold">Class:</span> {selectedExamDetails.classes?.name}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Date:</span> {format(new Date(selectedExamDetails.exam_date), 'dd MMMM yyyy')}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Total Marks:</span> {selectedExamDetails.total_marks}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-semibold">Passing Score:</span> {selectedExamDetails.passing_score} ({Math.round((selectedExamDetails.passing_score / selectedExamDetails.total_marks) * 100)}%)
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  {selectedExam && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Search Student</Label>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                          <Input 
-                            className="pl-10" 
-                            placeholder="Search by name or registration number" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                          />
+          <div className="space-y-2">
+            <Label htmlFor="subject-select">Subject</Label>
+            <Select
+              value={selectedSubject}
+              onValueChange={(value) => {
+                setSelectedSubject(value);
+                setSelectedExam('');
+              }}
+              disabled={!selectedClass}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={selectedClass ? "Select subject" : "Select class first"} />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects?.map((subject) => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    {subject.name} ({subject.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="exam-select">Exam</Label>
+            <Select
+              value={selectedExam}
+              onValueChange={setSelectedExam}
+              disabled={!selectedSubject}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={selectedSubject ? "Select exam" : "Select subject first"} />
+              </SelectTrigger>
+              <SelectContent>
+                {exams?.map((exam) => (
+                  <SelectItem key={exam.id} value={exam.id}>
+                    {exam.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        {selectedExam ? (
+          <>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex flex-col md:flex-row gap-2 md:items-center">
+                <div className="bg-blue-50 px-4 py-2 rounded-md">
+                  <span className="text-sm text-blue-700">Exam: </span>
+                  <span className="font-medium">{examDetails?.title}</span>
+                </div>
+                <div className="bg-green-50 px-4 py-2 rounded-md">
+                  <span className="text-sm text-green-700">Total Marks: </span>
+                  <span className="font-medium">{examDetails?.total_marks}</span>
+                </div>
+                <div className="bg-amber-50 px-4 py-2 rounded-md">
+                  <span className="text-sm text-amber-700">Passing Score: </span>
+                  <span className="font-medium">{examDetails?.passing_score}</span>
+                </div>
+              </div>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input 
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            
+            <Tabs defaultValue="enter" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="enter">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Enter Results
+                </TabsTrigger>
+                <TabsTrigger value="view">
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  View Results
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="enter">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Enter Exam Results</CardTitle>
+                    <CardDescription>
+                      Record marks and comments for each student
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingData ? (
+                      <div className="flex justify-center py-10">
+                        <div className="flex flex-col items-center">
+                          <Spinner className="h-8 w-8" />
+                          <p className="mt-4 text-gray-500">Loading student data...</p>
                         </div>
                       </div>
-                      
-                      <div className="border rounded-md h-48 overflow-y-auto">
-                        {loadingStudents ? (
-                          <div className="flex justify-center items-center h-full">
-                            <Spinner className="h-6 w-6" />
-                          </div>
-                        ) : filteredStudents && filteredStudents.length > 0 ? (
-                          <div className="divide-y">
-                            {filteredStudents.map(student => {
-                              const hasResult = examResults?.some(r => r.student_id === student.id);
-                              
+                    ) : filteredStudents && filteredStudents.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="px-4 py-2 text-left">Reg. No</th>
+                              <th className="px-4 py-2 text-left">Student Name</th>
+                              <th className="px-4 py-2 text-center">Marks (/{examDetails?.total_marks})</th>
+                              <th className="px-4 py-2 text-left">Comments (Optional)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredStudents.map((student) => {
+                              const result = getStudentResult(student.id);
                               return (
-                                <div 
-                                  key={student.id} 
-                                  className={`p-3 cursor-pointer flex justify-between items-center hover:bg-gray-50 ${selectedStudent === student.id ? 'bg-blue-50' : ''}`}
-                                  onClick={() => selectStudent(student.id)}
-                                >
-                                  <div className="flex items-center space-x-3">
-                                    <div className="font-medium">
-                                      {student.profiles?.first_name} {student.profiles?.last_name}
-                                    </div>
-                                    <div className="text-sm text-gray-500">
-                                      {student.registration_number}
-                                    </div>
-                                  </div>
-                                  {hasResult && (
-                                    <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                                      Recorded
-                                    </div>
-                                  )}
-                                </div>
+                                <tr key={student.id} className="border-b">
+                                  <td className="px-4 py-3">{student.registration_number}</td>
+                                  <td className="px-4 py-3">
+                                    {student.profiles?.first_name || 'Unknown'} {student.profiles?.last_name || 'Student'}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Input
+                                      type="text"
+                                      value={result.marks}
+                                      onChange={(e) => handleMarkChange(student.id, e.target.value)}
+                                      className="w-20 mx-auto text-center"
+                                      placeholder="0"
+                                      max={examDetails?.total_marks}
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <Textarea
+                                      value={result.comments}
+                                      onChange={(e) => handleCommentChange(student.id, e.target.value)}
+                                      placeholder="Add comments (optional)"
+                                      className="min-h-0 h-10"
+                                    />
+                                  </td>
+                                </tr>
                               );
                             })}
-                          </div>
-                        ) : (
-                          <div className="flex justify-center items-center h-full text-gray-500">
-                            No students found
-                          </div>
-                        )}
+                          </tbody>
+                        </table>
                       </div>
-                      
-                      {selectedStudent && (
-                        <div className="space-y-4 border-t pt-4">
-                          <div>
-                            <Label htmlFor="marks">Marks Obtained</Label>
-                            <Input 
-                              id="marks" 
-                              type="number" 
-                              min="0" 
-                              max={selectedExamDetails?.total_marks}
-                              value={marks}
-                              onChange={(e) => setMarks(e.target.value ? Number(e.target.value) : '')}
-                              required
-                            />
-                            {selectedExamDetails && typeof marks === 'number' && (
-                              <div className="text-sm mt-1">
-                                {marks >= selectedExamDetails.passing_score ? (
-                                  <span className="text-green-600">Passed</span>
-                                ) : (
-                                  <span className="text-red-600">Failed</span>
-                                )} ({Math.round((marks / selectedExamDetails.total_marks) * 100)}%)
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="comments">Comments (Optional)</Label>
-                            <Textarea 
-                              id="comments" 
-                              placeholder="Add comments about the student's performance"
-                              value={comments}
-                              onChange={(e) => setComments(e.target.value)}
-                            />
-                          </div>
-                          
-                          <Button 
-                            onClick={handleRecordResult}
-                            disabled={isSubmitting}
-                            className="w-full"
-                          >
-                            {isSubmitting ? "Processing..." : (findStudentResult() ? "Update Result" : "Record Result")}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="view" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>View Exam Results</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="viewExam">Select Exam</Label>
-                    <Select
-                      value={selectedExam}
-                      onValueChange={setSelectedExam}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={loadingExams ? "Loading exams..." : "Select an exam"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {exams?.map(exam => (
-                          <SelectItem key={exam.id} value={exam.id}>
-                            {exam.title} - {exam.subjects?.name} ({format(new Date(exam.exam_date), 'dd/MM/yyyy')})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {selectedExamDetails && (
-                    <Card className="bg-gray-50">
-                      <CardContent className="pt-4">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="font-semibold">Subject:</span> {selectedExamDetails.subjects?.name} ({selectedExamDetails.subjects?.code})
-                          </div>
-                          <div>
-                            <span className="font-semibold">Class:</span> {selectedExamDetails.classes?.name}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Date:</span> {format(new Date(selectedExamDetails.exam_date), 'dd MMMM yyyy')}
-                          </div>
-                          <div>
-                            <span className="font-semibold">Total Marks:</span> {selectedExamDetails.total_marks}
-                          </div>
-                          <div className="col-span-2">
-                            <span className="font-semibold">Passing Score:</span> {selectedExamDetails.passing_score} ({Math.round((selectedExamDetails.passing_score / selectedExamDetails.total_marks) * 100)}%)
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  {isLoading ? (
-                    <div className="flex justify-center py-10">
-                      <div className="flex flex-col items-center">
-                        <Spinner className="h-8 w-8" />
-                        <p className="mt-4 text-gray-500">Loading exam data...</p>
+                    ) : (
+                      <div className="text-center py-10 text-gray-500">
+                        {searchQuery 
+                          ? "No students found matching your search criteria"
+                          : "No students found in this class"}
                       </div>
-                    </div>
-                  ) : selectedExam && examResults && (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm text-gray-500">
-                          {examResults.length > 0 
-                            ? `Showing ${examResults.length} result${examResults.length > 1 ? 's' : ''}`
-                            : 'No results recorded yet'
-                          }
-                        </div>
-                        <div className="text-sm">
-                          <Input 
-                            className="w-64" 
-                            placeholder="Search by name or reg number" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                          />
+                    )}
+                    
+                    {filteredStudents && filteredStudents.length > 0 && (
+                      <div className="mt-6 flex justify-end">
+                        <Button 
+                          onClick={handleSaveResults}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? (
+                            <>Saving Results...</>
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4 mr-2" />
+                              Save Results
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="view">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>View Exam Results</CardTitle>
+                    <CardDescription>
+                      Overview of student performance in this exam
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingData ? (
+                      <div className="flex justify-center py-10">
+                        <div className="flex flex-col items-center">
+                          <Spinner className="h-8 w-8" />
+                          <p className="mt-4 text-gray-500">Loading results data...</p>
                         </div>
                       </div>
-                      
-                      {examResults.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse">
-                            <thead>
-                              <tr className="bg-gray-100">
-                                <th className="px-4 py-2 text-left">Student</th>
-                                <th className="px-4 py-2 text-left">Registration No.</th>
-                                <th className="px-4 py-2 text-left">Marks</th>
-                                <th className="px-4 py-2 text-left">Percentage</th>
-                                <th className="px-4 py-2 text-left">Result</th>
-                                <th className="px-4 py-2 text-left">Comments</th>
-                                <th className="px-4 py-2 text-left">Recorded By</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {examResults.map(result => {
-                                const student = students?.find(s => s.id === result.student_id);
-                                const percentage = selectedExamDetails 
-                                  ? Math.round((result.marks_obtained / selectedExamDetails.total_marks) * 100) 
-                                  : 0;
-                                const isPassed = selectedExamDetails 
-                                  ? result.marks_obtained >= selectedExamDetails.passing_score 
-                                  : false;
-                                
-                                if (!student) return null;
-                                
-                                // Filter by search query
-                                const fullName = `${student.profiles?.first_name || ''} ${student.profiles?.last_name || ''}`.toLowerCase();
-                                const regNumber = student.registration_number.toLowerCase();
-                                if (searchQuery && !fullName.includes(searchQuery.toLowerCase()) && !regNumber.includes(searchQuery.toLowerCase())) {
-                                  return null;
-                                }
-                                
-                                return (
-                                  <tr key={result.id} className="border-b hover:bg-gray-50">
-                                    <td className="px-4 py-3">
-                                      {student.profiles?.first_name} {student.profiles?.last_name}
-                                    </td>
-                                    <td className="px-4 py-3">{student.registration_number}</td>
-                                    <td className="px-4 py-3">
-                                      {result.marks_obtained} / {selectedExamDetails?.total_marks}
-                                    </td>
-                                    <td className="px-4 py-3">{percentage}%</td>
-                                    <td className="px-4 py-3">
-                                      <span className={`px-2 py-1 rounded-full text-xs ${isPassed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                        {isPassed ? 'Passed' : 'Failed'}
+                    ) : studentsWithResults && studentsWithResults.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="px-4 py-2 text-left">Student</th>
+                              <th className="px-4 py-2 text-left">Reg. No</th>
+                              <th className="px-4 py-2 text-center">Marks</th>
+                              <th className="px-4 py-2 text-center">Status</th>
+                              <th className="px-4 py-2 text-left">Comments</th>
+                              <th className="px-4 py-2 text-left">Recorded By</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {studentsWithResults.map((student) => (
+                              <tr key={student.id} className="border-b">
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
+                                      <User className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                      {student.profiles?.first_name || 'Unknown'} {student.profiles?.last_name || 'Student'}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">{student.registration_number}</td>
+                                <td className="px-4 py-3 text-center font-medium">
+                                  {student.result ? (
+                                    `${student.result.marks_obtained}/${examDetails?.total_marks}`
+                                  ) : (
+                                    <span className="text-gray-400">No result</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  {student.result ? (
+                                    student.result.marks_obtained >= (examDetails?.passing_score || 0) ? (
+                                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                                        Pass
                                       </span>
-                                    </td>
-                                    <td className="px-4 py-3">{result.comments || '-'}</td>
-                                    <td className="px-4 py-3 text-sm">
-                                      {result.profiles?.first_name} {result.profiles?.last_name}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          No results have been recorded for this exam yet.
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                                    ) : (
+                                      <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                                        Fail
+                                      </span>
+                                    )
+                                  ) : (
+                                    <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                                      Not recorded
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {student.result?.comments || <span className="text-gray-400">-</span>}
+                                </td>
+                                <td className="px-4 py-3 text-sm">
+                                  {student.result?.recorder_profile ? (
+                                    `${student.result.recorder_profile.first_name || ''} ${student.result.recorder_profile.last_name || ''}`.trim() || 'Unknown'
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 text-gray-500">
+                        {searchQuery 
+                          ? "No students found matching your search criteria"
+                          : "No results have been recorded for this exam"}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto" />
+                <h3 className="mt-4 text-lg font-medium">Select an Exam</h3>
+                <p className="mt-2 text-gray-500 max-w-md mx-auto">
+                  Please select a class, subject, and exam to view or enter exam results
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </MainLayout>
   );

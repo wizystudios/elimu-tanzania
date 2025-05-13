@@ -33,6 +33,16 @@ type TeacherAssignment = {
   teacher_name: string;
 };
 
+// Define type for teacher with profile information
+interface TeacherWithProfile {
+  id: string;
+  user_id: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+  } | null;
+}
+
 const AssignTeachers = () => {
   const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<string>('');
@@ -117,8 +127,11 @@ const AssignTeachers = () => {
         
       if (rolesError) throw rolesError;
       
+      // TypeScript assertion to help with type safety
+      const typedTeacherRoles = teacherRoles as TeacherWithProfile[];
+      
       // Filter out any teachers without profile information
-      return teacherRoles
+      return typedTeacherRoles
         .filter(teacher => teacher.profiles)
         .map(teacher => ({
           id: teacher.user_id,
