@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { School } from '@/types';
 import { Link } from 'react-router-dom';
@@ -42,7 +41,7 @@ const SchoolsOverview: React.FC<SchoolsOverviewProps> = ({ schools: propSchools 
         
         if (data) {
           // Transform the data to match School type completely
-          const typedSchools: School[] = data.map(school => ({
+          const typedSchools: School[] = data.map((school: any) => ({
             id: school.id,
             name: school.name, 
             type: school.type as School['type'],

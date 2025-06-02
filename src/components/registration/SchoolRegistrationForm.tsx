@@ -206,7 +206,7 @@ const SchoolRegistrationForm: React.FC = () => {
         throw new Error("School creation failed: No data returned");
       }
       
-      const schoolId = schoolData[0].id;
+      const schoolId = (schoolData[0] as any).id;
       console.log("School created successfully with ID:", schoolId);
       
       // 2. Create location for the school

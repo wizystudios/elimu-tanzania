@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +66,7 @@ const CreateExamForm = ({ onExamCreated }: CreateExamFormProps) => {
       toast({
         title: "Validation Error",
         description: "Please fill out all required fields",
-        variant: "destructive"
+        variant: "error"
       });
       return;
     }
@@ -126,7 +125,7 @@ const CreateExamForm = ({ onExamCreated }: CreateExamFormProps) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create exam",
-        variant: "destructive"
+        variant: "error"
       });
     } finally {
       setIsSubmitting(false);
@@ -171,7 +170,7 @@ const CreateExamForm = ({ onExamCreated }: CreateExamFormProps) => {
               <SelectValue placeholder={loadingSubjects ? "Loading subjects..." : "Select a subject"} />
             </SelectTrigger>
             <SelectContent>
-              {subjects?.map((subject) => (
+              {subjects?.map((subject: any) => (
                 <SelectItem key={subject.id} value={subject.id}>
                   {subject.name} ({subject.code})
                 </SelectItem>
@@ -190,7 +189,7 @@ const CreateExamForm = ({ onExamCreated }: CreateExamFormProps) => {
               <SelectValue placeholder={loadingClasses ? "Loading classes..." : "Select a class"} />
             </SelectTrigger>
             <SelectContent>
-              {classes?.map((classItem) => (
+              {classes?.map((classItem: any) => (
                 <SelectItem key={classItem.id} value={classItem.id}>
                   {classItem.name} ({getEducationLevelLabel(classItem.education_level)})
                 </SelectItem>

@@ -1,8 +1,8 @@
 
 import { toast as sonnerToast } from "sonner";
 
-// Define the toast type
-type ToastType = "default" | "success" | "error" | "warning" | "info";
+// Define the toast type - include "destructive" as an alias for "error"
+type ToastType = "default" | "success" | "error" | "warning" | "info" | "destructive";
 
 // Define props for toast function
 interface ToastProps {
