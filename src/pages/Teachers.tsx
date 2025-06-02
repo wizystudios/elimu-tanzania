@@ -6,6 +6,16 @@ import { User, Search, Plus, Mail, Phone, GraduationCap, BookOpen } from 'lucide
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
+interface SubjectData {
+  id: string;
+  name: string;
+}
+
+interface TeacherSubjectRelation {
+  teacher_id: string;
+  subjects: SubjectData | SubjectData[] | null;
+}
+
 const Teachers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -66,9 +76,9 @@ const Teachers = () => {
         const teacherRole = teacherRoles.find(role => role.user_id === teacher.id);
         
         // Get subjects taught by this teacher - handle array structure properly
-        const subjectRelations = teacherSubjects?.filter(ts => ts.teacher_id === teacher.id) || [];
+        const subjectRelations = (teacherSubjects as TeacherSubjectRelation[])?.filter(ts => ts.teacher_id === teacher.id) || [];
         const subjects = subjectRelations.map(relation => {
-          const subject = relation.subjects;
+          const subject = relation.subjects as SubjectData;
           // Handle case where subjects might be an array or object or null
           if (Array.isArray(subject) && subject.length > 0) {
             return subject[0]?.name || null;

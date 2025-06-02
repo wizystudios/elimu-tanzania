@@ -6,6 +6,21 @@ import { User, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
+interface StudentData {
+  id: string;
+  user_id: string;
+  current_class_id: string | null;
+  class?: {
+    name: string;
+  } | null;
+}
+
+interface ParentStudentRelation {
+  parent_id: string;
+  relationship: string;
+  student: StudentData | StudentData[] | null;
+}
+
 const Parents = () => {
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -59,11 +74,11 @@ const Parents = () => {
       }
       
       // Get student user details - handle array structure properly
-      const studentUserIds = parentStudentRelations?.filter(r => {
-        const student = r.student;
+      const studentUserIds = (parentStudentRelations as ParentStudentRelation[])?.filter(r => {
+        const student = r.student as StudentData;
         return student && !Array.isArray(student) && student.user_id;
       }).map(r => {
-        const student = r.student;
+        const student = r.student as StudentData;
         return student && !Array.isArray(student) ? student.user_id : null;
       }).filter(Boolean) || [];
       
@@ -81,11 +96,11 @@ const Parents = () => {
       
       // Map parent profiles with their associated students
       return parentProfiles?.map(parent => {
-        const childRelations = parentStudentRelations?.filter(relation => relation.parent_id === parent.id) || [];
+        const childRelations = (parentStudentRelations as ParentStudentRelation[])?.filter(relation => relation.parent_id === parent.id) || [];
         
         // Map child relations to student details
         const children = childRelations.map(relation => {
-          const student = relation.student;
+          const student = relation.student as StudentData;
           
           // Handle case where student might be an array or object or null
           if (!student || Array.isArray(student)) {
