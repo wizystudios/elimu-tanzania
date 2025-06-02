@@ -10,7 +10,7 @@ interface StatCardProps {
     value: string | number;
     positive: boolean;
   };
-  color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple';
+  color?: 'blue' | 'green' | 'yellow' | 'red' | 'purple' | 'indigo' | 'cyan' | 'emerald' | 'orange';
 }
 
 const StatCard = ({ title, value, icon, change, color = 'blue' }: StatCardProps) => {
@@ -39,6 +39,26 @@ const StatCard = ({ title, value, icon, change, color = 'blue' }: StatCardProps)
       bg: 'bg-tanzanian-purple/10',
       icon: 'bg-tanzanian-purple/20 text-tanzanian-purple',
       text: 'text-tanzanian-purple'
+    },
+    indigo: {
+      bg: 'bg-indigo-100',
+      icon: 'bg-indigo-200 text-indigo-600',
+      text: 'text-indigo-600'
+    },
+    cyan: {
+      bg: 'bg-cyan-100',
+      icon: 'bg-cyan-200 text-cyan-600',
+      text: 'text-cyan-600'
+    },
+    emerald: {
+      bg: 'bg-emerald-100',
+      icon: 'bg-emerald-200 text-emerald-600',
+      text: 'text-emerald-600'
+    },
+    orange: {
+      bg: 'bg-orange-100',
+      icon: 'bg-orange-200 text-orange-600',
+      text: 'text-orange-600'
     }
   };
 

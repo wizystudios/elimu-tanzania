@@ -64,7 +64,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ receiverId, receiverName, recei
           sender_id,
           receiver_id,
           created_at,
-          sender_profile:sender_id (
+          sender_profile:profiles!messages_sender_id_fkey (
             first_name,
             last_name,
             profile_image
@@ -74,7 +74,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ receiverId, receiverName, recei
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Transform the data to match our Message interface
+      const transformedMessages = data?.map(msg => ({
+        ...msg,
+        sender_profile: Array.isArray(msg.sender_profile) ? msg.sender_profile[0] : msg.sender_profile
+      })) || [];
+      
+      setMessages(transformedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
