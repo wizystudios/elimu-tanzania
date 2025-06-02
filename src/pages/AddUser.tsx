@@ -25,6 +25,7 @@ const AddUser = () => {
   const { schoolId } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
   const [classes, setClasses] = useState<Class[]>([]);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -61,18 +62,45 @@ const AddUser = () => {
   }, [schoolId]);
 
   const fetchClasses = async () => {
-    if (!schoolId) return;
+    if (!schoolId) {
+      console.log('No school ID available, skipping class fetch');
+      return;
+    }
 
+    setIsLoadingClasses(true);
     try {
+      console.log('Fetching classes for school:', schoolId);
+      
       const { data, error } = await supabase
         .from('classes')
         .select('id, name, education_level')
-        .eq('school_id', schoolId);
+        .eq('school_id', schoolId)
+        .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching classes:', error);
+        throw error;
+      }
+      
+      console.log('Fetched classes:', data);
       setClasses(data || []);
+      
+      if (!data || data.length === 0) {
+        toast({
+          title: "No Classes Found",
+          description: "No classes have been created yet. Students will need to be assigned to classes later.",
+          variant: "default"
+        });
+      }
     } catch (error) {
       console.error('Error fetching classes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load classes. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingClasses(false);
     }
   };
 
@@ -88,9 +116,25 @@ const AddUser = () => {
       return;
     }
 
+    // Validate required fields
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.role) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      console.log('Creating user with data:', {
+        email: formData.email,
+        role: formData.role,
+        schoolId: schoolId
+      });
+
       // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
@@ -101,9 +145,14 @@ const AddUser = () => {
         }
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw authError;
+      }
 
       if (authData.user) {
+        console.log('User created successfully, creating role...');
+        
         // Create user role
         const { error: roleError } = await supabase
           .from('user_roles')
@@ -115,7 +164,12 @@ const AddUser = () => {
             is_active: true
           });
 
-        if (roleError) throw roleError;
+        if (roleError) {
+          console.error('Role creation error:', roleError);
+          throw roleError;
+        }
+
+        console.log('Role created successfully, updating profile...');
 
         // Update profile
         const { error: profileError } = await supabase
@@ -126,23 +180,31 @@ const AddUser = () => {
           })
           .eq('id', authData.user.id);
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+          throw profileError;
+        }
 
         // If student, create student record
-        if (formData.role === 'student' && formData.classId) {
+        if (formData.role === 'student') {
+          console.log('Creating student record...');
+          
           const { error: studentError } = await supabase
             .from('students')
             .insert({
               user_id: authData.user.id,
               school_id: schoolId,
-              current_class_id: formData.classId,
+              current_class_id: formData.classId || null,
               registration_number: `STU${Date.now()}`,
               gender: 'other', // Default, can be updated later
               date_of_birth: '2000-01-01', // Default, should be updated
               enrollment_date: new Date().toISOString().split('T')[0]
             });
 
-          if (studentError) throw studentError;
+          if (studentError) {
+            console.error('Student creation error:', studentError);
+            throw studentError;
+          }
         }
 
         toast({
@@ -166,7 +228,7 @@ const AddUser = () => {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="p-2 sm:p-4 lg:p-6 space-y-6">
         <div className="flex items-center space-x-4">
           <Link to="/users" className="flex items-center text-tanzanian-blue hover:underline">
             <ArrowLeft className="h-4 w-4 mr-1" />
@@ -174,47 +236,50 @@ const AddUser = () => {
           </Link>
         </div>
 
-        <Card className="max-w-2xl">
+        <Card className="max-w-full sm:max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
+            <CardTitle className="flex items-center space-x-2 text-lg sm:text-xl">
               <span>Add New User</span>
               <span>👤</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm sm:text-base">
               Create a new user account for your school system
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
+                  <Label htmlFor="firstName">First Name *</Label>
                   <Input
                     id="firstName"
                     value={formData.firstName}
                     onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
                     required
+                    className="text-sm sm:text-base"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="lastName">Last Name *</Label>
                   <Input
                     id="lastName"
                     value={formData.lastName}
                     onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
                     required
+                    className="text-sm sm:text-base"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email *</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   required
+                  className="text-sm sm:text-base"
                 />
               </div>
 
@@ -225,30 +290,32 @@ const AddUser = () => {
                   value={formData.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="+255 XXX XXX XXX"
+                  className="text-sm sm:text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Password *</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                   required
+                  className="text-sm sm:text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role">Role *</Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="text-sm sm:text-base">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {userRoles.map((role) => (
                       <SelectItem key={role.value} value={role.value}>
                         {role.label}
@@ -265,10 +332,10 @@ const AddUser = () => {
                     value={formData.teacherRole}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, teacherRole: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="text-sm sm:text-base">
                       <SelectValue placeholder="Select teacher role" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       {teacherRoles.map((role) => (
                         <SelectItem key={role.value} value={role.value}>
                           {role.label}
@@ -282,36 +349,60 @@ const AddUser = () => {
               {formData.role === 'student' && (
                 <div className="space-y-2">
                   <Label htmlFor="classId">Class</Label>
-                  <Select
-                    value={formData.classId}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, classId: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.length > 0 ? (
-                        classes.map((cls) => (
-                          <SelectItem key={cls.id} value={cls.id}>
-                            {cls.name} ({cls.education_level})
+                  {isLoadingClasses ? (
+                    <div className="flex items-center space-x-2 text-sm text-gray-500">
+                      <div className="animate-spin h-4 w-4 border-2 border-tanzanian-blue border-t-transparent rounded-full"></div>
+                      <span>Loading classes...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.classId}
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, classId: value }))}
+                    >
+                      <SelectTrigger className="text-sm sm:text-base">
+                        <SelectValue placeholder="Select a class (optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white">
+                        {classes.length > 0 ? (
+                          <>
+                            {classes.map((cls) => (
+                              <SelectItem key={cls.id} value={cls.id}>
+                                {cls.name} ({cls.education_level})
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="other">No Class (Assign Later)</SelectItem>
+                          </>
+                        ) : (
+                          <SelectItem value="other">
+                            No classes available - Create classes first
                           </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="other" disabled>
-                          No classes available - Create classes first
-                        </SelectItem>
-                      )}
-                      <SelectItem value="other">Other (Manual Assignment Later)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    {classes.length === 0 ? 
+                      "No classes have been created yet. Student can be assigned to a class later." :
+                      "Select a class for the student or leave empty to assign later."
+                    }
+                  </p>
                 </div>
               )}
 
-              <div className="flex justify-end space-x-4">
-                <Button type="button" variant="outline" onClick={() => navigate('/users')}>
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => navigate('/users')}
+                  className="text-sm sm:text-base"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button 
+                  type="submit" 
+                  disabled={isLoading}
+                  className="text-sm sm:text-base"
+                >
                   {isLoading ? 'Creating... ⏳' : 'Create User 🎉'}
                 </Button>
               </div>
