@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,6 +40,7 @@ import Settings from "./pages/Settings";
 import Calendar from "./pages/Calendar";
 import AddEvent from "./pages/AddEvent";
 import RealTimeChat from "./pages/RealTimeChat";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -202,6 +204,11 @@ const AppWithProviders = () => (
         } />
         
         {/* User Account Routes */}
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
         <Route path="/settings" element={
           <ProtectedRoute>
             <Settings />

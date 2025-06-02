@@ -3,33 +3,40 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import { User, Search, Plus, Filter, UserPlus, Settings } from 'lucide-react';
+import { User, Search, Plus, Filter, UserPlus, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { User as UserType, UserRole } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Users = () => {
+  const { schoolId } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
   const [users, setUsers] = useState<UserType[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const itemsPerPage = 3;
   
   // Get all available roles for filter options
   const userRoles: { value: UserRole | 'all', label: string }[] = [
     { value: 'all', label: 'All Roles' },
-    { value: 'super_admin', label: 'Super Admin' },
-    { value: 'admin', label: 'Admin' },
-    { value: 'headmaster', label: 'Headmaster' },
-    { value: 'vice_headmaster', label: 'Vice Headmaster' },
-    { value: 'academic_teacher', label: 'Academic Teacher' },
-    { value: 'teacher', label: 'Teacher' },
-    { value: 'student', label: 'Student' },
-    { value: 'parent', label: 'Parent' },
+    { value: 'super_admin', label: 'Super Admin 👑' },
+    { value: 'admin', label: 'Admin 🛡️' },
+    { value: 'headmaster', label: 'Headmaster 🎓' },
+    { value: 'vice_headmaster', label: 'Vice Headmaster 📚' },
+    { value: 'academic_teacher', label: 'Academic Teacher 🏆' },
+    { value: 'teacher', label: 'Teacher 📖' },
+    { value: 'student', label: 'Student 🎒' },
+    { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
   ];
 
   // Fetch users data from Supabase
-  const { data: usersData, isLoading } = useQuery({
-    queryKey: ['users', selectedRole],
+  const { data: usersData, isLoading, refetch } = useQuery({
+    queryKey: ['users', selectedRole, schoolId],
     queryFn: async () => {
+      console.log('Fetching users for school:', schoolId);
+      
       // Get user roles with profile information
       let query = supabase
         .from('user_roles')
@@ -51,13 +58,23 @@ const Users = () => {
           )
         `);
       
+      // Filter by school if not super_admin viewing all
+      if (schoolId && selectedRole !== 'super_admin') {
+        query = query.eq('school_id', schoolId);
+      }
+      
       if (selectedRole !== 'all') {
         query = query.eq('role', selectedRole);
       }
       
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+      
+      console.log('Raw user data:', data);
       
       // Transform the data to match our User type
       const transformedUsers = data?.map(userRole => {
@@ -81,6 +98,7 @@ const Users = () => {
         };
       }) || [];
       
+      console.log('Transformed users:', transformedUsers);
       return transformedUsers;
     }
   });
@@ -100,7 +118,13 @@ const Users = () => {
            user.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  // Function to get role display label
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Function to get role display label with emoji
   const getRoleLabel = (role: UserRole): string => {
     const roleOption = userRoles.find(r => r.value === role);
     return roleOption ? roleOption.label : role.replace('_', ' ');
@@ -127,12 +151,37 @@ const Users = () => {
     }
   };
 
+  // Bulk actions
+  const handleSelectAll = () => {
+    if (selectedUsers.length === currentUsers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(currentUsers.map(user => user.id));
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ is_active: false })
+        .in('user_id', selectedUsers);
+      
+      if (error) throw error;
+      
+      refetch();
+      setSelectedUsers([]);
+    } catch (error) {
+      console.error('Error bulk deactivating users:', error);
+    }
+  };
+
   return (
     <MainLayout>
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold">Users</h1>
+            <h1 className="text-2xl font-bold">Users 👥</h1>
             <p className="text-gray-600">Manage all system users and their permissions</p>
           </div>
           <div className="flex space-x-2">
@@ -143,10 +192,12 @@ const Users = () => {
               <UserPlus className="h-5 w-5" />
               <span>Add User</span>
             </Link>
-            <Button variant="outline" className="flex items-center space-x-2">
-              <Settings className="h-5 w-5" />
-              <span>Bulk Actions</span>
-            </Button>
+            {selectedUsers.length > 0 && (
+              <Button variant="outline" onClick={handleBulkDeactivate} className="flex items-center space-x-2">
+                <Settings className="h-5 w-5" />
+                <span>Deactivate Selected ({selectedUsers.length})</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -190,6 +241,14 @@ const Users = () => {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-6 py-3 text-left">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded border-gray-300"
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
@@ -199,8 +258,22 @@ const Users = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
+                  {currentUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedUsers.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedUsers([...selectedUsers, user.id]);
+                            } else {
+                              setSelectedUsers(selectedUsers.filter(id => id !== user.id));
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center overflow-hidden">
@@ -217,6 +290,7 @@ const Users = () => {
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {user.firstName} {user.lastName}
+                              {user.role === 'super_admin' && <span className="ml-1">👑</span>}
                             </div>
                             <div className="text-sm text-gray-500">{user.email}</div>
                           </div>
@@ -244,7 +318,7 @@ const Users = () => {
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {user.isActive ? 'Active' : 'Inactive'}
+                          {user.isActive ? '✅ Active' : '❌ Inactive'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -252,10 +326,10 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
-                          <Link to={`/users/${user.id}`} className="text-tanzanian-blue hover:text-tanzanian-blue/80">
+                          <Link to={`/profile`} className="text-tanzanian-blue hover:text-tanzanian-blue/80">
                             View
                           </Link>
-                          <Link to={`/users/${user.id}/edit`} className="text-tanzanian-green hover:text-tanzanian-green/80">
+                          <Link to={`/profile`} className="text-tanzanian-green hover:text-tanzanian-green/80">
                             Edit
                           </Link>
                           <button
@@ -275,12 +349,70 @@ const Users = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
+                <div className="flex-1 flex justify-between sm:hidden">
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Next
+                  </Button>
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                      <span className="font-medium">{Math.min(endIndex, filteredUsers.length)}</span> of{' '}
+                      <span className="font-medium">{filteredUsers.length}</span> results
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                      <Button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-r-none"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                        {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        variant="outline"
+                        size="sm"
+                        className="rounded-l-none"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-10 text-center">
             <div className="flex flex-col items-center justify-center">
               <User className="h-16 w-16 text-gray-300 mb-4" />
-              <h3 className="text-xl font-medium text-gray-700 mb-2">No Users Found</h3>
+              <h3 className="text-xl font-medium text-gray-700 mb-2">No Users Found 😔</h3>
               <p className="text-gray-500 mb-6 max-w-md">
                 {searchQuery || selectedRole !== 'all'
                   ? "No users match your search criteria. Try adjusting your filters."

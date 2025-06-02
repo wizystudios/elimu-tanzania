@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -13,12 +13,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+interface Class {
+  id: string;
+  name: string;
+  education_level: string;
+}
+
 const AddUser = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { schoolId } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,27 +33,48 @@ const AddUser = () => {
     phone: '',
     role: '',
     teacherRole: '',
+    classId: '',
     password: ''
   });
 
   const userRoles = [
-    { value: 'admin', label: 'Admin' },
-    { value: 'headmaster', label: 'Head Master' },
-    { value: 'vice_headmaster', label: 'Vice Head Master' },
-    { value: 'academic_teacher', label: 'Academic Teacher' },
-    { value: 'teacher', label: 'Teacher' },
-    { value: 'student', label: 'Student' },
-    { value: 'parent', label: 'Parent' },
+    { value: 'admin', label: 'Admin 🛡️' },
+    { value: 'headmaster', label: 'Head Master 🎓' },
+    { value: 'vice_headmaster', label: 'Vice Head Master 📚' },
+    { value: 'academic_teacher', label: 'Academic Teacher 🏆' },
+    { value: 'teacher', label: 'Teacher 📖' },
+    { value: 'student', label: 'Student 🎒' },
+    { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
   ];
 
   const teacherRoles = [
-    { value: 'normal_teacher', label: 'Normal Teacher' },
-    { value: 'homeroom_teacher', label: 'Homeroom Teacher' },
-    { value: 'subject_teacher', label: 'Subject Teacher' },
-    { value: 'headmaster', label: 'Head Master' },
-    { value: 'vice_headmaster', label: 'Vice Head Master' },
-    { value: 'academic_teacher', label: 'Academic Teacher' },
+    { value: 'normal_teacher', label: 'Normal Teacher 📖' },
+    { value: 'homeroom_teacher', label: 'Homeroom Teacher 🏠' },
+    { value: 'subject_teacher', label: 'Subject Teacher 📚' },
+    { value: 'headmaster', label: 'Head Master 🎓' },
+    { value: 'vice_headmaster', label: 'Vice Head Master 📚' },
+    { value: 'academic_teacher', label: 'Academic Teacher 🏆' },
   ];
+
+  useEffect(() => {
+    fetchClasses();
+  }, [schoolId]);
+
+  const fetchClasses = async () => {
+    if (!schoolId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('classes')
+        .select('id, name, education_level')
+        .eq('school_id', schoolId);
+
+      if (error) throw error;
+      setClasses(data || []);
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,9 +128,26 @@ const AddUser = () => {
 
         if (profileError) throw profileError;
 
+        // If student, create student record
+        if (formData.role === 'student' && formData.classId) {
+          const { error: studentError } = await supabase
+            .from('students')
+            .insert({
+              user_id: authData.user.id,
+              school_id: schoolId,
+              current_class_id: formData.classId,
+              registration_number: `STU${Date.now()}`,
+              gender: 'other', // Default, can be updated later
+              date_of_birth: '2000-01-01', // Default, should be updated
+              enrollment_date: new Date().toISOString().split('T')[0]
+            });
+
+          if (studentError) throw studentError;
+        }
+
         toast({
-          title: "Success",
-          description: "User has been created successfully"
+          title: "Success! 🎉",
+          description: `${formData.firstName} ${formData.lastName} has been created successfully`
         });
 
         navigate('/users');
@@ -110,7 +155,7 @@ const AddUser = () => {
     } catch (error: any) {
       console.error('Error creating user:', error);
       toast({
-        title: "Error",
+        title: "Error ❌",
         description: error.message || "Failed to create user",
         variant: "destructive"
       });
@@ -131,7 +176,10 @@ const AddUser = () => {
 
         <Card className="max-w-2xl">
           <CardHeader>
-            <CardTitle>Add New User</CardTitle>
+            <CardTitle className="flex items-center space-x-2">
+              <span>Add New User</span>
+              <span>👤</span>
+            </CardTitle>
             <CardDescription>
               Create a new user account for your school system
             </CardDescription>
@@ -176,6 +224,7 @@ const AddUser = () => {
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+255 XXX XXX XXX"
                 />
               </div>
 
@@ -230,12 +279,40 @@ const AddUser = () => {
                 </div>
               )}
 
+              {formData.role === 'student' && (
+                <div className="space-y-2">
+                  <Label htmlFor="classId">Class</Label>
+                  <Select
+                    value={formData.classId}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, classId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.length > 0 ? (
+                        classes.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>
+                            {cls.name} ({cls.education_level})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="other" disabled>
+                          No classes available - Create classes first
+                        </SelectItem>
+                      )}
+                      <SelectItem value="other">Other (Manual Assignment Later)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="flex justify-end space-x-4">
                 <Button type="button" variant="outline" onClick={() => navigate('/users')}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Creating...' : 'Create User'}
+                  {isLoading ? 'Creating... ⏳' : 'Create User 🎉'}
                 </Button>
               </div>
             </form>
