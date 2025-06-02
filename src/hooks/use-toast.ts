@@ -14,66 +14,54 @@ interface ToastProps {
 }
 
 // Create a wrapper around sonner toast to provide consistent styling
-const toast = {
-  default: (props: ToastProps | string) => {
-    if (typeof props === "string") {
-      return sonnerToast(props);
-    }
-    return sonnerToast(props.title || "", {
-      description: props.description,
-      duration: props.duration || 5000,
-      action: props.action,
-    });
-  },
+const toast = (props: ToastProps | string) => {
+  if (typeof props === "string") {
+    return sonnerToast(props);
+  }
   
-  success: (props: ToastProps | string) => {
-    if (typeof props === "string") {
-      return sonnerToast.success(props);
-    }
-    return sonnerToast.success(props.title || "", {
-      description: props.description,
-      duration: props.duration || 5000,
-      action: props.action,
-    });
-  },
+  const { title, description, variant = "default", duration = 5000, action } = props;
   
-  error: (props: ToastProps | string) => {
-    if (typeof props === "string") {
-      return sonnerToast.error(props);
-    }
-    return sonnerToast.error(props.title || "", {
-      description: props.description,
-      duration: props.duration || 7000, // Longer duration for errors
-      action: props.action,
-    });
-  },
-  
-  warning: (props: ToastProps | string) => {
-    if (typeof props === "string") {
-      return sonnerToast.warning(props);
-    }
-    return sonnerToast.warning(props.title || "", {
-      description: props.description,
-      duration: props.duration || 5000,
-      action: props.action,
-    });
-  },
-  
-  info: (props: ToastProps | string) => {
-    if (typeof props === "string") {
-      return sonnerToast.info(props);
-    }
-    return sonnerToast.info(props.title || "", {
-      description: props.description,
-      duration: props.duration || 5000,
-      action: props.action,
-    });
-  },
+  switch (variant) {
+    case "success":
+      return sonnerToast.success(title || "", {
+        description,
+        duration,
+        action,
+      });
+    case "error":
+    case "destructive":
+      return sonnerToast.error(title || "", {
+        description,
+        duration: duration || 7000, // Longer duration for errors
+        action,
+      });
+    case "warning":
+      return sonnerToast.warning(title || "", {
+        description,
+        duration,
+        action,
+      });
+    case "info":
+      return sonnerToast.info(title || "", {
+        description,
+        duration,
+        action,
+      });
+    default:
+      return sonnerToast(title || "", {
+        description,
+        duration,
+        action,
+      });
+  }
 };
 
-// Hook implementation
+// Hook implementation that returns both the toast function and an empty toasts array for compatibility
 const useToast = () => {
-  return toast;
+  return {
+    toast,
+    toasts: [], // Empty array for compatibility with Toaster component
+  };
 };
 
 export { useToast, toast };
