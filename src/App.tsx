@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,6 +26,7 @@ import Unauthorized from "./pages/Unauthorized";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Users from "./pages/Users";
+import AddUser from "./pages/AddUser";
 import Classes from "./pages/Classes";
 import CreateClass from "./pages/CreateClass";
 import Subjects from "./pages/Subjects";
@@ -38,6 +38,7 @@ import Messages from "./pages/Messages";
 import Settings from "./pages/Settings";
 import Calendar from "./pages/Calendar";
 import AddEvent from "./pages/AddEvent";
+import RealTimeChat from "./pages/RealTimeChat";
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,11 @@ const AppWithProviders = () => (
         <Route path="/users" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
             <Users />
+          </ProtectedRoute>
+        } />
+        <Route path="/users/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddUser />
           </ProtectedRoute>
         } />
         <Route path="/students" element={
@@ -191,7 +197,7 @@ const AppWithProviders = () => (
         } />
         <Route path="/messages" element={
           <ProtectedRoute>
-            <Messages />
+            <RealTimeChat />
           </ProtectedRoute>
         } />
         

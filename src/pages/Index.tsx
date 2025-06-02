@@ -33,9 +33,14 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [schoolData, setSchoolData] = useState<any | null>(null);
   const [stats, setStats] = useState({
-    students: 0,
+    superAdmins: 0,
+    admins: 0,
+    headmasters: 0,
+    viceHeadmasters: 0,
+    academicTeachers: 0,
     teachers: 0,
-    classes: 0
+    students: 0,
+    parents: 0
   });
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
@@ -67,17 +72,27 @@ const Dashboard = () => {
           
           setSchoolData(schools);
           
-          // Get total counts for super_admin
-          const [studentsResult, teachersResult, classesResult] = await Promise.all([
-            supabase.from('students').select('id', { count: 'exact' }),
+          // Get total counts for super_admin (across all schools)
+          const roleQueries = await Promise.all([
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'super_admin'),
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin'),
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'headmaster'),
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'vice_headmaster'),
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'academic_teacher'),
             supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'teacher'),
-            supabase.from('classes').select('id', { count: 'exact' })
+            supabase.from('students').select('id', { count: 'exact' }),
+            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'parent')
           ]);
           
           setStats({
-            students: studentsResult.count || 0,
-            teachers: teachersResult.count || 0,
-            classes: classesResult.count || 0
+            superAdmins: roleQueries[0].count || 0,
+            admins: roleQueries[1].count || 0,
+            headmasters: roleQueries[2].count || 0,
+            viceHeadmasters: roleQueries[3].count || 0,
+            academicTeachers: roleQueries[4].count || 0,
+            teachers: roleQueries[5].count || 0,
+            students: roleQueries[6].count || 0,
+            parents: roleQueries[7].count || 0
           });
           
           // Fetch all recent activities for super_admin
@@ -120,26 +135,26 @@ const Dashboard = () => {
           
           if (school) {
             // Fetch stats for specific school
-            const [studentsResult, teachersResult, classesResult] = await Promise.all([
-              supabase
-                .from('students')
-                .select('id', { count: 'exact' })
-                .eq('school_id', schoolId),
-              supabase
-                .from('user_roles')
-                .select('id', { count: 'exact' })
-                .eq('school_id', schoolId)
-                .eq('role', 'teacher'),
-              supabase
-                .from('classes')
-                .select('id', { count: 'exact' })
-                .eq('school_id', schoolId)
+            const roleQueries = await Promise.all([
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'super_admin'),
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'admin'),
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'headmaster'),
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'vice_headmaster'),
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'academic_teacher'),
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'teacher'),
+              supabase.from('students').select('id', { count: 'exact' }).eq('school_id', schoolId),
+              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'parent')
             ]);
             
             setStats({
-              students: studentsResult.count || 0,
-              teachers: teachersResult.count || 0,
-              classes: classesResult.count || 0
+              superAdmins: roleQueries[0].count || 0,
+              admins: roleQueries[1].count || 0,
+              headmasters: roleQueries[2].count || 0,
+              viceHeadmasters: roleQueries[3].count || 0,
+              academicTeachers: roleQueries[4].count || 0,
+              teachers: roleQueries[5].count || 0,
+              students: roleQueries[6].count || 0,
+              parents: roleQueries[7].count || 0
             });
             
             // Fetch recent activities for specific school
@@ -247,28 +262,63 @@ const Dashboard = () => {
           {schoolName ? `Karibu kwenye ${schoolName}` : 'Karibu kwenye Elimu Tanzania School Management System.'}
         </p>
       
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+        {/* User Role Statistics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard 
-            title="Students" 
-            value={stats.students.toString()} 
+            title="Super Admins" 
+            value={stats.superAdmins.toString()} 
             icon={<Users className="h-5 w-5" />} 
             change={{ value: 0, positive: true }}
-            color="green"
+            color="purple"
+          />
+          <StatCard 
+            title="Admins" 
+            value={stats.admins.toString()} 
+            icon={<Users className="h-5 w-5" />} 
+            change={{ value: 0, positive: true }}
+            color="blue"
+          />
+          <StatCard 
+            title="Head Masters" 
+            value={stats.headmasters.toString()} 
+            icon={<GraduationCap className="h-5 w-5" />} 
+            change={{ value: 0, positive: true }}
+            color="indigo"
+          />
+          <StatCard 
+            title="Vice Head Masters" 
+            value={stats.viceHeadmasters.toString()} 
+            icon={<GraduationCap className="h-5 w-5" />} 
+            change={{ value: 0, positive: true }}
+            color="cyan"
+          />
+          <StatCard 
+            title="Academic Teachers" 
+            value={stats.academicTeachers.toString()} 
+            icon={<Book className="h-5 w-5" />} 
+            change={{ value: 0, positive: true }}
+            color="emerald"
           />
           <StatCard 
             title="Teachers" 
             value={stats.teachers.toString()} 
             icon={<GraduationCap className="h-5 w-5" />} 
             change={{ value: 0, positive: true }}
-            color="purple"
+            color="green"
           />
           <StatCard 
-            title="Classes" 
-            value={stats.classes.toString()} 
-            icon={<Book className="h-5 w-5" />}
+            title="Students" 
+            value={stats.students.toString()} 
+            icon={<Users className="h-5 w-5" />} 
             change={{ value: 0, positive: true }}
             color="yellow"
+          />
+          <StatCard 
+            title="Parents" 
+            value={stats.parents.toString()} 
+            icon={<Users className="h-5 w-5" />}
+            change={{ value: 0, positive: true }}
+            color="orange"
           />
         </div>
 
