@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,14 +55,19 @@ const ChatUserList: React.FC<ChatUserListProps> = ({ onSelectUser, selectedUserI
 
       if (error) throw error;
 
-      const formattedUsers = data?.map(item => ({
-        id: item.user_id,
-        first_name: item.profiles?.first_name || '',
-        last_name: item.profiles?.last_name || '',
-        profile_image: item.profiles?.profile_image,
-        role: item.role,
-        is_online: false // We can implement real presence later
-      })) || [];
+      const formattedUsers = data?.map(item => {
+        // Handle the profiles array - take the first (and should be only) profile
+        const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+        
+        return {
+          id: item.user_id,
+          first_name: profile?.first_name || '',
+          last_name: profile?.last_name || '',
+          profile_image: profile?.profile_image,
+          role: item.role,
+          is_online: false // We can implement real presence later
+        };
+      }) || [];
 
       setUsers(formattedUsers);
     } catch (error) {
