@@ -2,19 +2,18 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
-import { User, Search, Plus, Filter } from 'lucide-react';
+import { User, Search, Plus, Mail, Phone, GraduationCap, BookOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
 const Teachers = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   
   // Fetch teachers data from Supabase
-  const { data: teachersData, isLoading } = useQuery({
+  const { data: teachers, isLoading } = useQuery({
     queryKey: ['teachers'],
     queryFn: async () => {
-      // First get all users with teacher role
+      // Get all users with teacher role
       const { data: teacherRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, teacher_role')
@@ -26,76 +25,86 @@ const Teachers = () => {
         return [];
       }
       
-      // Get profile information for all teachers
+      // Get teacher profiles
       const teacherIds = teacherRoles.map(role => role.user_id);
       
-      const { data: profiles, error: profilesError } = await supabase
+      const { data: teacherProfiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, email, profile_image, phone')
         .in('id', teacherIds);
         
       if (profilesError) throw profilesError;
       
-      // Fetch the teacher subjects and class assignments
-      // This would normally come from a teacher_subjects table
+      // Get subjects taught by teachers
       const { data: teacherSubjects, error: subjectsError } = await supabase
         .from('teacher_subjects')
         .select(`
-          teacher_id, 
+          teacher_id,
           subjects:subject_id (
-            id, name
-          ),
-          classes:class_id (
-            id, name
+            id,
+            name
           )
         `)
         .in('teacher_id', teacherIds);
       
-      if (subjectsError) throw subjectsError;
+      if (subjectsError) {
+        console.error('Error fetching teacher subjects:', subjectsError);
+      }
       
-      // Map teacher data to get complete teacher profiles
-      return profiles?.map(profile => {
-        const role = teacherRoles.find(r => r.user_id === profile.id);
-        const teacherSubjectsForUser = teacherSubjects?.filter(ts => ts.teacher_id === profile.id) || [];
+      // Get classes assigned to teachers
+      const { data: classes, error: classesError } = await supabase
+        .from('classes')
+        .select('id, name, homeroom_teacher_id')
+        .in('homeroom_teacher_id', teacherIds);
+      
+      if (classesError) {
+        console.error('Error fetching classes:', classesError);
+      }
+      
+      // Map teacher profiles with their subjects and classes
+      return teacherProfiles?.map(teacher => {
+        const teacherRole = teacherRoles.find(role => role.user_id === teacher.id);
         
-        // Extract unique subjects and classes
-        const subjects = Array.from(new Set(teacherSubjectsForUser.map(ts => ts.subjects?.name))).filter(Boolean) as string[];
-        const classesAssigned = Array.from(new Set(teacherSubjectsForUser.map(ts => ts.classes?.name))).filter(Boolean) as string[];
+        // Get subjects taught by this teacher - handle array structure properly
+        const subjectRelations = teacherSubjects?.filter(ts => ts.teacher_id === teacher.id) || [];
+        const subjects = subjectRelations.map(relation => {
+          const subject = relation.subjects;
+          // Handle case where subjects might be an array or object
+          if (Array.isArray(subject) && subject.length > 0) {
+            return subject[0].name;
+          } else if (subject && !Array.isArray(subject)) {
+            return subject.name;
+          }
+          return null;
+        }).filter(Boolean);
         
-        // TODO: This would come from a qualifications table in a real implementation
-        const qualifications = ["B.Ed in Education", "Diploma in Mathematics"];
+        // Get classes where this teacher is homeroom teacher
+        const homeroomClasses = classes?.filter(cls => cls.homeroom_teacher_id === teacher.id).map(cls => cls.name) || [];
         
         return {
-          id: profile.id,
-          firstName: profile.first_name,
-          lastName: profile.last_name,
-          email: profile.email,
-          profileImage: profile.profile_image,
-          phoneNumber: profile.phone,
-          staffId: `TCH/${new Date().getFullYear()}/${profile.id.substring(0, 3)}`,
-          teacherRole: role?.teacher_role || 'normal_teacher',
-          subjects,
-          classesAssigned,
-          qualifications,
+          id: teacher.id,
+          firstName: teacher.first_name,
+          lastName: teacher.last_name,
+          email: teacher.email,
+          profileImage: teacher.profile_image,
+          phoneNumber: teacher.phone || '',
+          role: 'teacher',
+          teacherRole: teacherRole?.teacher_role || 'normal_teacher',
+          subjects: subjects,
+          classes: homeroomClasses,
+          isActive: true
         };
       }) || [];
     }
   });
   
-  // Get all unique subjects for the filter
-  const allSubjects = teachersData 
-    ? [...new Set(teachersData.flatMap(teacher => teacher.subjects))]
-    : [];
-  
-  // Filter teachers based on search query and selected subject
-  const filteredTeachers = teachersData?.filter((teacher) => {
+  // Filter teachers based on search query
+  const filteredTeachers = teachers?.filter((teacher) => {
     const fullName = `${teacher.firstName} ${teacher.lastName}`.toLowerCase();
-    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || 
-                          teacher.staffId.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesSubject = selectedSubject === null || teacher.subjects.includes(selectedSubject);
-    
-    return matchesSearch && matchesSubject;
+    return fullName.includes(searchQuery.toLowerCase()) || 
+           teacher.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           teacher.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           teacher.subjects.some((subject: string) => subject.toLowerCase().includes(searchQuery.toLowerCase()));
   });
 
   return (
@@ -104,51 +113,28 @@ const Teachers = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Teachers</h1>
-            <p className="text-gray-600">Manage all teaching staff</p>
+            <p className="text-gray-600">Manage teaching staff and their assignments</p>
           </div>
           <Link 
             to="/teachers/add" 
             className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
           >
             <Plus className="h-5 w-5" />
-            <span>Register Teacher</span>
+            <span>Add Teacher</span>
           </Link>
         </div>
 
-        {/* Filters */}
+        {/* Search */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input 
-                type="text" 
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-tanzanian-blue focus:border-transparent"
-                placeholder="Search teachers by name or staff ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-2 text-sm">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <span>Filter by subject:</span>
-              <div className="flex items-center space-x-2 flex-wrap">
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedSubject === null ? 'bg-gray-200 text-gray-800' : 'bg-white border border-gray-300 text-gray-600'}`}
-                  onClick={() => setSelectedSubject(null)}
-                >
-                  All
-                </button>
-                {allSubjects.map((subject) => (
-                  <button 
-                    key={subject}
-                    className={`px-3 py-1 rounded-full ${selectedSubject === subject ? 'bg-blue-100 text-blue-800' : 'bg-white border border-gray-300 text-gray-600'}`}
-                    onClick={() => setSelectedSubject(subject)}
-                  >
-                    {subject}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input 
+              type="text" 
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-tanzanian-blue focus:border-transparent"
+              placeholder="Search teachers by name, email, phone, or subject..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
 
@@ -158,114 +144,113 @@ const Teachers = () => {
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tanzanian-blue"></div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Teacher
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Staff ID
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Subjects
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Classes
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Qualifications
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredTeachers && filteredTeachers.length > 0 ? (
-                    filteredTeachers.map((teacher) => (
-                      <tr key={teacher.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 flex-shrink-0 mr-3">
-                              {teacher.profileImage ? (
-                                <img
-                                  className="h-10 w-10 rounded-full object-cover"
-                                  src={teacher.profileImage}
-                                  alt={`${teacher.firstName} ${teacher.lastName}`}
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center text-tanzanian-blue">
-                                  <User className="h-5 w-5" />
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {teacher.firstName} {teacher.lastName}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {teacher.email}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {teacher.staffId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredTeachers && filteredTeachers.length > 0 ? (
+              filteredTeachers.map((teacher) => (
+                <div key={teacher.id} className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
+                  <div className="p-6">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="h-12 w-12 rounded-full bg-tanzanian-blue/10 flex items-center justify-center overflow-hidden">
+                        {teacher.profileImage ? (
+                          <img
+                            className="h-12 w-12 object-cover"
+                            src={teacher.profileImage}
+                            alt={`${teacher.firstName} ${teacher.lastName}`}
+                          />
+                        ) : (
+                          <User className="h-6 w-6 text-tanzanian-blue" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">{teacher.firstName} {teacher.lastName}</h3>
+                        <p className="text-sm text-gray-500 capitalize">{teacher.teacherRole.replace('_', ' ')}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-start space-x-2">
+                        <Mail className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <p className="text-sm text-gray-600">{teacher.email}</p>
+                      </div>
+                      {teacher.phoneNumber && (
+                        <div className="flex items-start space-x-2">
+                          <Phone className="h-4 w-4 text-gray-400 mt-0.5" />
+                          <p className="text-sm text-gray-600">{teacher.phoneNumber}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          <BookOpen className="h-4 w-4 mr-1" />
+                          Subjects:
+                        </h4>
+                        {teacher.subjects && teacher.subjects.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {teacher.subjects.map((subject, index) => (
+                            {teacher.subjects.map((subject: string, index: number) => (
                               <span key={index} className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
                                 {subject}
                               </span>
                             ))}
-                            {teacher.subjects.length === 0 && (
-                              <span className="text-xs text-gray-500">No subjects assigned</span>
-                            )}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        ) : (
+                          <p className="text-sm text-gray-500">No subjects assigned</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                          <GraduationCap className="h-4 w-4 mr-1" />
+                          Classes:
+                        </h4>
+                        {teacher.classes && teacher.classes.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {teacher.classesAssigned.map((className, index) => (
+                            {teacher.classes.map((className: string, index: number) => (
                               <span key={index} className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
                                 {className}
                               </span>
                             ))}
-                            {teacher.classesAssigned.length === 0 && (
-                              <span className="text-xs text-gray-500">No classes assigned</span>
-                            )}
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <ul className="text-sm text-gray-500 list-disc list-inside">
-                            {teacher.qualifications.map((qualification, index) => (
-                              <li key={index}>{qualification}</li>
-                            ))}
-                          </ul>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Link to={`/teachers/${teacher.id}`} className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</Link>
-                          <Link to={`/teachers/${teacher.id}/edit`} className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</Link>
-                          <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                        {searchQuery || selectedSubject ? 
-                          "No teachers found matching your search criteria." : 
-                          "No teachers have been added yet."
-                        }
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        ) : (
+                          <p className="text-sm text-gray-500">No classes assigned</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        teacher.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {teacher.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 px-6 py-3 flex justify-end space-x-2">
+                    <Link to={`/teachers/${teacher.id}`} className="text-sm text-tanzanian-blue hover:underline">View Profile</Link>
+                    <Link to={`/teachers/${teacher.id}/edit`} className="text-sm text-tanzanian-green hover:underline">Edit</Link>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-10 bg-white rounded-lg shadow-sm">
+                <User className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500">
+                  {searchQuery 
+                    ? "No teachers found matching your search criteria." 
+                    : "No teachers have been added yet."}
+                </p>
+                <Link 
+                  to="/teachers/add" 
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-tanzanian-blue text-white rounded-md hover:bg-tanzanian-blue/90"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Teacher
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>

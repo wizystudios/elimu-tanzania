@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Search, Users, Link, UserPlus } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -97,6 +97,11 @@ const LinkParents = () => {
       // Combine student data with their profiles
       return studentsData.map(student => {
         const profile = studentProfiles?.find(profile => profile.id === student.user_id);
+        // Handle classes array properly
+        const classInfo = Array.isArray(student.classes) && student.classes.length > 0 
+          ? student.classes[0] 
+          : null;
+        
         return {
           id: student.id,
           user_id: student.user_id,
@@ -104,8 +109,8 @@ const LinkParents = () => {
           first_name: profile?.first_name || '',
           last_name: profile?.last_name || '',
           current_class_id: student.current_class_id,
-          class_name: student.classes?.name || '',
-          education_level: student.classes?.education_level || ''
+          class_name: classInfo?.name || '',
+          education_level: classInfo?.education_level || ''
         };
       });
     }

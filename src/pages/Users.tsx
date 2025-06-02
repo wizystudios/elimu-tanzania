@@ -1,248 +1,122 @@
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
-import { User } from '@/types';
-import { Search, Plus, Filter, UserPlus } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
-} from "@/components/ui/form";
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-
-// Define schema for form validation
-const userFormSchema = z.object({
-  firstName: z.string().min(2, { message: "First name is required" }),
-  lastName: z.string().min(2, { message: "Last name is required" }),
-  email: z.string().email({ message: "Valid email is required" }),
-  phoneNumber: z.string().min(10, { message: "Valid phone number is required" }),
-  role: z.string().min(1, { message: "Role is required" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-});
+import { User, Search, Plus, Filter, UserPlus, Settings } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { User as UserType, UserRole } from '@/types';
 
 const Users = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [usersList, setUsersList] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
-  const { userRole, schoolId } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
+  const [users, setUsers] = useState<UserType[]>([]);
   
-  // Initialize form
-  const form = useForm<z.infer<typeof userFormSchema>>({
-    resolver: zodResolver(userFormSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phoneNumber: "",
-      role: "",
-      password: "",
-    },
-  });
+  // Get all available roles for filter options
+  const userRoles: { value: UserRole | 'all', label: string }[] = [
+    { value: 'all', label: 'All Roles' },
+    { value: 'super_admin', label: 'Super Admin' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'headmaster', label: 'Headmaster' },
+    { value: 'vice_headmaster', label: 'Vice Headmaster' },
+    { value: 'academic_teacher', label: 'Academic Teacher' },
+    { value: 'teacher', label: 'Teacher' },
+    { value: 'student', label: 'Student' },
+    { value: 'parent', label: 'Parent' },
+  ];
 
-  // Function to fetch real users from Supabase
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        
-        if (!schoolId) {
-          console.error("School ID not found");
-          return;
-        }
-        
-        // Get roles for the school
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select(`
-            id, 
-            user_id, 
-            role, 
-            is_active, 
-            teacher_role
-          `)
-          .eq('school_id', schoolId);
-          
-        if (roleError) {
-          throw roleError;
-        }
-        
-        if (!roleData || roleData.length === 0) {
-          setUsersList([]);
-          return;
-        }
-        
-        // Get profile info for each user
-        const userIds = roleData.map(role => role.user_id);
-        
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, phone, profile_image')
-          .in('id', userIds);
-          
-        if (profilesError) {
-          throw profilesError;
-        }
-        
-        // Combine data
-        const combinedUsers = roleData.map(role => {
-          const profile = profilesData?.find(p => p.id === role.user_id);
-          
-          return {
-            id: role.user_id,
-            firstName: profile?.first_name || "",
-            lastName: profile?.last_name || "",
-            email: profile?.email || "",
-            phoneNumber: profile?.phone || "",
-            role: role.role,
-            teacherRole: role.teacher_role,
-            isActive: role.is_active,
-            profileImage: profile?.profile_image || null,
-            schoolId,
-          };
-        });
-        
-        setUsersList(combinedUsers);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        toast.error('Failed to load users data');
-        setUsersList([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUsers();
-  }, [userRole, schoolId]);
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'super_admin': return 'bg-rose-100 text-rose-800';
-      case 'admin': return 'bg-purple-100 text-purple-800';
-      case 'teacher': return 'bg-blue-100 text-blue-800';
-      case 'student': return 'bg-green-100 text-green-800';
-      case 'parent': return 'bg-amber-100 text-amber-800';
-      case 'headmaster': return 'bg-indigo-100 text-indigo-800';
-      case 'academic_teacher': return 'bg-cyan-100 text-cyan-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getRoleDisplayName = (role: string): string => {
-    switch (role) {
-      case 'super_admin': return 'Super Admin';
-      case 'admin': return 'School Admin';
-      case 'teacher': return 'Teacher';
-      case 'student': return 'Student';
-      case 'parent': return 'Parent';
-      case 'headmaster': return 'Headmaster';
-      case 'vice_headmaster': return 'Vice Headmaster';
-      case 'academic_teacher': return 'Academic Teacher';
-      default: return role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ');
-    }
-  };
-
-  const filteredUsers = usersList.filter((user) => {
-    const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
-    
-    const matchesSearch = fullName.includes(searchQuery.toLowerCase()) || 
-                          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (user.phoneNumber && user.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesRole = selectedRole === null || user.role === selectedRole;
-    
-    return matchesSearch && matchesRole;
-  });
-  
-  // Function to handle user creation
-  const handleCreateUser = async (values: z.infer<typeof userFormSchema>) => {
-    try {
-      const { firstName, lastName, email, phoneNumber, role, password } = values;
-      
-      // 1. Create the user in auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          }
-        }
-      });
-      
-      if (authError) throw authError;
-      
-      if (!authData.user) {
-        toast.error("Failed to create user account");
-        return;
-      }
-      
-      // 2. Update the profile with additional info
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          phone: phoneNumber
-        })
-        .eq('id', authData.user.id);
-        
-      if (profileError) throw profileError;
-      
-      // 3. Create user_role entry
-      const { error: roleError } = await supabase
+  // Fetch users data from Supabase
+  const { data: usersData, isLoading } = useQuery({
+    queryKey: ['users', selectedRole],
+    queryFn: async () => {
+      // Get user roles with profile information
+      let query = supabase
         .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
+        .select(`
+          id,
+          user_id,
           role,
-          school_id: schoolId,
-          is_active: true
-        });
-        
-      if (roleError) throw roleError;
+          teacher_role,
+          is_active,
+          school_id,
+          profiles:user_id (
+            id,
+            first_name,
+            last_name,
+            email,
+            phone,
+            profile_image,
+            created_at
+          )
+        `);
       
-      toast.success("User created successfully");
-      setIsAddUserOpen(false);
-      form.reset();
+      if (selectedRole !== 'all') {
+        query = query.eq('role', selectedRole);
+      }
       
-      // Refresh the users list
-      const newUser: User = {
-        id: authData.user.id,
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
-        role,
-        isActive: true,
-        schoolId: schoolId || "",
-        profileImage: null,
-      };
+      const { data, error } = await query;
       
-      setUsersList(prev => [...prev, newUser]);
+      if (error) throw error;
       
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      toast.error(error.message || "Failed to create user");
+      // Transform the data to match our User type
+      const transformedUsers = data?.map(userRole => ({
+        id: userRole.user_id,
+        firstName: userRole.profiles?.first_name || '',
+        lastName: userRole.profiles?.last_name || '',
+        email: userRole.profiles?.email || '',
+        role: userRole.role as UserRole,
+        profileImage: userRole.profiles?.profile_image || undefined,
+        phoneNumber: userRole.profiles?.phone || '',
+        isActive: userRole.is_active,
+        createdAt: userRole.profiles?.created_at || new Date().toISOString(),
+        schoolId: userRole.school_id,
+        teacherRole: userRole.teacher_role
+      })) || [];
+      
+      return transformedUsers;
+    }
+  });
+  
+  // Update local state when data changes
+  useEffect(() => {
+    if (usersData) {
+      setUsers(usersData);
+    }
+  }, [usersData]);
+
+  // Filter users based on search query
+  const filteredUsers = users.filter((user) => {
+    const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+    return fullName.includes(searchQuery.toLowerCase()) || 
+           user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           user.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
+  // Function to get role display label
+  const getRoleLabel = (role: UserRole): string => {
+    const roleOption = userRoles.find(r => r.value === role);
+    return roleOption ? roleOption.label : role.replace('_', ' ');
+  };
+
+  // Function to toggle user status
+  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ is_active: !currentStatus })
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setUsers(users.map(user => 
+        user.id === userId 
+          ? { ...user, isActive: !currentStatus }
+          : user
+      ));
+    } catch (error) {
+      console.error('Error updating user status:', error);
     }
   };
 
@@ -252,145 +126,31 @@ const Users = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Users</h1>
-            <p className="text-gray-600 dark:text-gray-300">Manage all system users</p>
+            <p className="text-gray-600">Manage all system users and their permissions</p>
           </div>
-          <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white">
-                <UserPlus className="h-5 w-5 mr-2" />
-                <span>Add User</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add New User</DialogTitle>
-                <DialogDescription>
-                  Create a new user account. The user will receive an email to activate their account.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleCreateUser)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="user@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input type="tel" placeholder="+255 123 456 789" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>User Role</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a role" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="admin">School Admin</SelectItem>
-                            <SelectItem value="teacher">Teacher</SelectItem>
-                            <SelectItem value="headmaster">Headmaster</SelectItem>
-                            <SelectItem value="vice_headmaster">Vice Headmaster</SelectItem>
-                            <SelectItem value="academic_teacher">Academic Teacher</SelectItem>
-                            <SelectItem value="student">Student</SelectItem>
-                            <SelectItem value="parent">Parent</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Temporary Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Minimum 6 characters" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <DialogFooter className="pt-4">
-                    <Button type="button" variant="outline" onClick={() => setIsAddUserOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">
-                      Create User
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+          <div className="flex space-x-2">
+            <Link 
+              to="/users/add" 
+              className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <UserPlus className="h-5 w-5" />
+              <span>Add User</span>
+            </Link>
+            <Button variant="outline" className="flex items-center space-x-2">
+              <Settings className="h-5 w-5" />
+              <span>Bulk Actions</span>
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input 
                 type="text" 
-                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-tanzanian-blue focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-tanzanian-blue focus:border-transparent"
                 placeholder="Search users by name, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -398,138 +158,149 @@ const Users = () => {
             </div>
             <div className="flex items-center space-x-2 text-sm">
               <Filter className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-700 dark:text-gray-300">Filter by role:</span>
-              <div className="flex flex-wrap items-center gap-2">
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedRole === null 
-                    ? 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
-                  onClick={() => setSelectedRole(null)}
-                >
-                  All
-                </button>
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedRole === 'admin' 
-                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
-                  onClick={() => setSelectedRole('admin')}
-                >
-                  Admin
-                </button>
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedRole === 'teacher' 
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
-                  onClick={() => setSelectedRole('teacher')}
-                >
-                  Teacher
-                </button>
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedRole === 'student' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
-                  onClick={() => setSelectedRole('student')}
-                >
-                  Student
-                </button>
-                <button 
-                  className={`px-3 py-1 rounded-full ${selectedRole === 'parent' 
-                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200' 
-                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
-                  onClick={() => setSelectedRole('parent')}
-                >
-                  Parent
-                </button>
-              </div>
+              <span>Role:</span>
+              <select 
+                className="border border-gray-300 rounded-md px-3 py-1"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value as UserRole | 'all')}
+              >
+                {userRoles.map((role) => (
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Users List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="flex justify-center items-center p-8">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-tanzanian-blue"></div>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-900">
+        {/* Users Grid */}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-tanzanian-blue"></div>
+          </div>
+        ) : filteredUsers && filteredUsers.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Contact
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center overflow-hidden">
                             {user.profileImage ? (
-                              <img 
-                                className="h-10 w-10 rounded-full object-cover" 
+                              <img
+                                className="h-10 w-10 object-cover"
                                 src={user.profileImage}
                                 alt={`${user.firstName} ${user.lastName}`}
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-full bg-tanzanian-blue flex items-center justify-center text-white">
-                                {user.firstName?.charAt(0) || ''}{user.lastName?.charAt(0) || ''}
-                              </div>
+                              <User className="h-5 w-5 text-tanzanian-blue" />
                             )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <div className="text-sm font-medium text-gray-900">
                               {user.firstName} {user.lastName}
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {user.email}
-                            </div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(user.role)}`}>
-                          {getRoleDisplayName(user.role)}
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {getRoleLabel(user.role)}
                         </span>
+                        {user.teacherRole && (
+                          <div className="mt-1">
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                              {user.teacherRole.replace('_', ' ')}
+                            </span>
+                          </div>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {user.phoneNumber}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>{user.email}</div>
+                        <div>{user.phoneNumber}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(user.createdAt).toLocaleDateString()}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-tanzanian-blue hover:text-tanzanian-blue/80 mr-4">View</button>
-                        <button className="text-tanzanian-green hover:text-tanzanian-green/80 mr-4">Edit</button>
-                        <button className="text-tanzanian-red hover:text-tanzanian-red/80">Delete</button>
+                        <div className="flex justify-end space-x-2">
+                          <Link to={`/users/${user.id}`} className="text-tanzanian-blue hover:text-tanzanian-blue/80">
+                            View
+                          </Link>
+                          <Link to={`/users/${user.id}/edit`} className="text-tanzanian-green hover:text-tanzanian-green/80">
+                            Edit
+                          </Link>
+                          <button
+                            onClick={() => toggleUserStatus(user.id, user.isActive)}
+                            className={`${
+                              user.isActive 
+                                ? 'text-red-600 hover:text-red-800' 
+                                : 'text-green-600 hover:text-green-800'
+                            }`}
+                          >
+                            {user.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            )}
-            {!loading && filteredUsers.length === 0 && (
-              <div className="text-center py-10">
-                <p className="text-gray-500 dark:text-gray-400">No users found matching your search criteria.</p>
-              </div>
-            )}
+            </div>
           </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-sm p-10 text-center">
+            <div className="flex flex-col items-center justify-center">
+              <User className="h-16 w-16 text-gray-300 mb-4" />
+              <h3 className="text-xl font-medium text-gray-700 mb-2">No Users Found</h3>
+              <p className="text-gray-500 mb-6 max-w-md">
+                {searchQuery || selectedRole !== 'all'
+                  ? "No users match your search criteria. Try adjusting your filters."
+                  : "There are no users in the system yet. Start by adding your first user."}
+              </p>
+              <Link 
+                to="/users/add" 
+                className="bg-tanzanian-blue hover:bg-tanzanian-blue/90 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+              >
+                <UserPlus className="h-5 w-5" />
+                <span>Add User</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Users Statistics */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+          {userRoles.filter(role => role.value !== 'all').map(role => {
+            const count = users.filter(user => user.role === role.value).length;
+            return (
+              <div key={role.value} className="bg-white p-4 rounded-lg shadow-sm">
+                <div className="text-sm font-medium text-gray-500">{role.label}s</div>
+                <div className="text-2xl font-bold text-gray-900">{count}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </MainLayout>

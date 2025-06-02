@@ -58,8 +58,8 @@ const Parents = () => {
         // Continue without relations data if there's an error
       }
       
-      // Get student user details
-      const studentUserIds = parentStudentRelations?.filter(r => r.student?.user_id).map(r => r.student.user_id) || [];
+      // Get student user details - handle array structure properly
+      const studentUserIds = parentStudentRelations?.filter(r => r.student && !Array.isArray(r.student) && r.student.user_id).map(r => r.student.user_id) || [];
       
       let studentProfiles = [];
       if (studentUserIds.length > 0) {
@@ -79,17 +79,25 @@ const Parents = () => {
         
         // Map child relations to student details
         const children = childRelations.map(relation => {
-          const studentProfile = studentProfiles.find(profile => profile.id === relation.student?.user_id);
+          const student = relation.student;
+          
+          // Handle case where student might be an array or object
+          if (!student || Array.isArray(student)) {
+            return null;
+          }
+          
+          const studentProfile = studentProfiles.find(profile => profile.id === student.user_id);
+          const classInfo = student.class && !Array.isArray(student.class) ? student.class : null;
           
           return {
-            id: relation.student?.id,
-            userId: relation.student?.user_id,
+            id: student.id,
+            userId: student.user_id,
             firstName: studentProfile?.first_name || 'Unknown',
             lastName: studentProfile?.last_name || 'Student',
-            currentClass: relation.student?.class?.name || 'Unassigned',
+            currentClass: classInfo?.name || 'Unassigned',
             relationship: relation.relationship
           };
-        });
+        }).filter(Boolean); // Remove null entries
         
         return {
           id: parent.id,

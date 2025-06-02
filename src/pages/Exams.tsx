@@ -51,11 +51,20 @@ const Exams = () => {
           status = 'in_progress';
         }
         
+        // Handle subjects and classes arrays properly
+        const subjectName = Array.isArray(exam.subjects) && exam.subjects.length > 0 
+          ? exam.subjects[0]?.name || 'Unknown Subject'
+          : 'Unknown Subject';
+        
+        const educationLevel = Array.isArray(exam.classes) && exam.classes.length > 0 
+          ? exam.classes[0]?.education_level || 'unknown'
+          : 'unknown';
+        
         return {
           id: exam.id,
           title: exam.title,
-          subject: exam.subjects?.name || 'Unknown Subject',
-          educationLevel: exam.classes?.education_level || 'unknown',
+          subject: subjectName,
+          educationLevel: educationLevel,
           date: exam.exam_date,
           duration: exam.duration,
           status,

@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -169,7 +169,7 @@ const AssignTeachers = () => {
       
       // Add teacher names to the results
       const results = await Promise.all(
-        data.map(async (assignment) => {
+        (data || []).map(async (assignment: any) => {
           // Get teacher name
           const { data: teacherData, error: teacherError } = await supabase
             .from('profiles')
@@ -180,13 +180,17 @@ const AssignTeachers = () => {
           if (teacherError || !teacherData) {
             return {
               ...assignment,
-              teacher_name: 'Unknown Teacher'
+              teacher_name: 'Unknown Teacher',
+              classes: assignment.classes || { name: '', education_level: '' },
+              subjects: assignment.subjects || { name: '', code: '' }
             };
           }
           
           return {
             ...assignment,
-            teacher_name: `${teacherData.first_name} ${teacherData.last_name}`
+            teacher_name: `${teacherData.first_name} ${teacherData.last_name}`,
+            classes: assignment.classes || { name: '', education_level: '' },
+            subjects: assignment.subjects || { name: '', code: '' }
           };
         })
       );

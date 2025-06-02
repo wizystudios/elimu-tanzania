@@ -63,7 +63,7 @@ const Classes = () => {
       if (error) throw error;
       
       // For each class, fetch the teacher's name separately
-      const classesWithTeachers = await Promise.all(data.map(async (classItem) => {
+      const classesWithTeachers = await Promise.all((data || []).map(async (classItem: any) => {
         if (classItem.homeroom_teacher_id) {
           // First get the user_id from the teachers table
           const { data: teacherData, error: teacherError } = await supabase
@@ -223,12 +223,10 @@ const Classes = () => {
                       <div>
                         <p className="text-sm font-medium text-gray-600">Subjects</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {Array.from(new Set(classItem.teacher_subjects?.map(ts => ts.subjects?.name))).map((subject, index) => (
-                            subject && (
-                              <span key={index} className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                                {subject}
-                              </span>
-                            )
+                          {Array.from(new Set(classItem.teacher_subjects?.map((ts: any) => ts.subjects?.name).filter(Boolean))).map((subject: string, index: number) => (
+                            <span key={index} className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                              {subject}
+                            </span>
                           ))}
                           {(!classItem.teacher_subjects || classItem.teacher_subjects.length === 0) && (
                             <span className="text-sm text-gray-500">No subjects assigned</span>
