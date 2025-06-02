@@ -107,28 +107,23 @@ const Users = () => {
               .single();
               
             return {
-              ...userRole,
-              profiles: profile
+              id: userRole.user_id,
+              firstName: profile?.first_name || '',
+              lastName: profile?.last_name || '',
+              email: profile?.email || '',
+              role: userRole.role as UserRole,
+              profileImage: profile?.profile_image || undefined,
+              phoneNumber: profile?.phone || '',
+              isActive: userRole.is_active,
+              createdAt: profile?.created_at || new Date().toISOString(),
+              schoolId: userRole.school_id,
+              teacherRole: userRole.teacher_role
             };
           })
         );
         
         console.log('Fallback user data:', usersWithProfiles);
-        
-        // Transform the fallback data
-        return usersWithProfiles.map(userRole => ({
-          id: userRole.user_id,
-          firstName: userRole.profiles?.first_name || '',
-          lastName: userRole.profiles?.last_name || '',
-          email: userRole.profiles?.email || '',
-          role: userRole.role as UserRole,
-          profileImage: userRole.profiles?.profile_image || undefined,
-          phoneNumber: userRole.profiles?.phone || '',
-          isActive: userRole.is_active,
-          createdAt: userRole.profiles?.created_at || new Date().toISOString(),
-          schoolId: userRole.school_id,
-          teacherRole: userRole.teacher_role
-        }));
+        return usersWithProfiles;
       }
       
       console.log('Raw user data:', data);
