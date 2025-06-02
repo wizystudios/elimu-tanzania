@@ -6,19 +6,21 @@ import { User, Search, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
+interface ClassData {
+  name: string;
+}
+
 interface StudentData {
   id: string;
   user_id: string;
   current_class_id: string | null;
-  class?: {
-    name: string;
-  } | null;
+  class?: ClassData[] | null; // This is actually an array from Supabase
 }
 
 interface ParentStudentRelation {
   parent_id: string;
   relationship: string;
-  student: StudentData | StudentData[] | null;
+  student: StudentData[] | null; // Supabase returns an array
 }
 
 const Parents = () => {
@@ -74,12 +76,12 @@ const Parents = () => {
       }
       
       // Get student user details - handle array structure properly
-      const studentUserIds = (parentStudentRelations as ParentStudentRelation[])?.filter(r => {
-        const student = r.student as StudentData;
-        return student && !Array.isArray(student) && student.user_id;
+      const studentUserIds = (parentStudentRelations as unknown as ParentStudentRelation[])?.filter(r => {
+        const students = r.student;
+        return students && Array.isArray(students) && students.length > 0 && students[0]?.user_id;
       }).map(r => {
-        const student = r.student as StudentData;
-        return student && !Array.isArray(student) ? student.user_id : null;
+        const students = r.student;
+        return students && Array.isArray(students) && students.length > 0 ? students[0].user_id : null;
       }).filter(Boolean) || [];
       
       let studentProfiles = [];
@@ -96,19 +98,20 @@ const Parents = () => {
       
       // Map parent profiles with their associated students
       return parentProfiles?.map(parent => {
-        const childRelations = (parentStudentRelations as ParentStudentRelation[])?.filter(relation => relation.parent_id === parent.id) || [];
+        const childRelations = (parentStudentRelations as unknown as ParentStudentRelation[])?.filter(relation => relation.parent_id === parent.id) || [];
         
         // Map child relations to student details
         const children = childRelations.map(relation => {
-          const student = relation.student as StudentData;
+          const students = relation.student;
           
-          // Handle case where student might be an array or object or null
-          if (!student || Array.isArray(student)) {
+          // Handle case where student might be null or empty array
+          if (!students || !Array.isArray(students) || students.length === 0) {
             return null;
           }
           
+          const student = students[0]; // Take the first student from the array
           const studentProfile = studentProfiles.find(profile => profile.id === student.user_id);
-          const classInfo = student.class && !Array.isArray(student.class) ? student.class : null;
+          const classInfo = student.class && Array.isArray(student.class) && student.class.length > 0 ? student.class[0] : null;
           
           return {
             id: student.id,
