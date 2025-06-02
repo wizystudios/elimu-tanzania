@@ -96,6 +96,7 @@ export interface User {
   isActive: boolean;
   createdAt: string;
   schoolId?: string;
+  teacherRole?: string;
 }
 
 export interface Student {

@@ -60,19 +60,26 @@ const Users = () => {
       if (error) throw error;
       
       // Transform the data to match our User type
-      const transformedUsers = data?.map(userRole => ({
-        id: userRole.user_id,
-        firstName: userRole.profiles?.first_name || '',
-        lastName: userRole.profiles?.last_name || '',
-        email: userRole.profiles?.email || '',
-        role: userRole.role as UserRole,
-        profileImage: userRole.profiles?.profile_image || undefined,
-        phoneNumber: userRole.profiles?.phone || '',
-        isActive: userRole.is_active,
-        createdAt: userRole.profiles?.created_at || new Date().toISOString(),
-        schoolId: userRole.school_id,
-        teacherRole: userRole.teacher_role
-      })) || [];
+      const transformedUsers = data?.map(userRole => {
+        // Handle profiles which can be an array or object
+        const profile = Array.isArray(userRole.profiles) 
+          ? userRole.profiles[0] 
+          : userRole.profiles;
+        
+        return {
+          id: userRole.user_id,
+          firstName: profile?.first_name || '',
+          lastName: profile?.last_name || '',
+          email: profile?.email || '',
+          role: userRole.role as UserRole,
+          profileImage: profile?.profile_image || undefined,
+          phoneNumber: profile?.phone || '',
+          isActive: userRole.is_active,
+          createdAt: profile?.created_at || new Date().toISOString(),
+          schoolId: userRole.school_id,
+          teacherRole: userRole.teacher_role
+        };
+      }) || [];
       
       return transformedUsers;
     }

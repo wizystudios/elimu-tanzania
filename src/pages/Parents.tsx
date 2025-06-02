@@ -59,7 +59,13 @@ const Parents = () => {
       }
       
       // Get student user details - handle array structure properly
-      const studentUserIds = parentStudentRelations?.filter(r => r.student && !Array.isArray(r.student) && r.student.user_id).map(r => r.student.user_id) || [];
+      const studentUserIds = parentStudentRelations?.filter(r => {
+        const student = r.student;
+        return student && !Array.isArray(student) && student.user_id;
+      }).map(r => {
+        const student = r.student;
+        return student && !Array.isArray(student) ? student.user_id : null;
+      }).filter(Boolean) || [];
       
       let studentProfiles = [];
       if (studentUserIds.length > 0) {
@@ -81,7 +87,7 @@ const Parents = () => {
         const children = childRelations.map(relation => {
           const student = relation.student;
           
-          // Handle case where student might be an array or object
+          // Handle case where student might be an array or object or null
           if (!student || Array.isArray(student)) {
             return null;
           }
