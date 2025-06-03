@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -10,15 +9,14 @@ import { User as UserType, UserRole } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Users = () => {
-  const { schoolId } = useAuth();
+  const { schoolId, userRole } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
   const [users, setUsers] = useState<UserType[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const itemsPerPage = 10; // Increased for better mobile experience
+  const itemsPerPage = 10;
   
-  // Get all available roles for filter options
   const userRoles: { value: UserRole | 'all', label: string }[] = [
     { value: 'all', label: 'All Roles' },
     { value: 'super_admin', label: 'Super Admin 👑' },
@@ -31,13 +29,11 @@ const Users = () => {
     { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
   ];
 
-  // Fixed query to properly join user_roles and profiles tables
   const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ['users', selectedRole, schoolId],
     queryFn: async () => {
-      console.log('Fetching users for school:', schoolId);
+      console.log('Fetching users for school:', schoolId, 'role filter:', selectedRole);
       
-      // Get user roles with profile information using proper joins
       let query = supabase
         .from('user_roles')
         .select(`
@@ -58,11 +54,12 @@ const Users = () => {
           )
         `);
       
-      // Filter by school if not super_admin viewing all
-      if (schoolId && selectedRole !== 'super_admin') {
+      // Filter by school (super_admin can see all)
+      if (schoolId && userRole !== 'super_admin') {
         query = query.eq('school_id', schoolId);
       }
       
+      // Filter by role if specified
       if (selectedRole !== 'all') {
         query = query.eq('role', selectedRole);
       }
@@ -71,68 +68,13 @@ const Users = () => {
       
       if (error) {
         console.error('Error fetching users:', error);
-        // Fallback query if the foreign key reference fails
-        const fallbackQuery = supabase
-          .from('user_roles')
-          .select(`
-            id,
-            user_id,
-            role,
-            teacher_role,
-            is_active,
-            school_id
-          `);
-          
-        if (schoolId && selectedRole !== 'super_admin') {
-          fallbackQuery.eq('school_id', schoolId);
-        }
-        
-        if (selectedRole !== 'all') {
-          fallbackQuery.eq('role', selectedRole);
-        }
-        
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-        
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          return [];
-        }
-        
-        // Manually fetch profiles for each user
-        const usersWithProfiles = await Promise.all(
-          (fallbackData || []).map(async (userRole) => {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', userRole.user_id)
-              .single();
-              
-            return {
-              id: userRole.user_id,
-              firstName: profile?.first_name || '',
-              lastName: profile?.last_name || '',
-              email: profile?.email || '',
-              role: userRole.role as UserRole,
-              profileImage: profile?.profile_image || undefined,
-              phoneNumber: profile?.phone || '',
-              isActive: userRole.is_active,
-              createdAt: profile?.created_at || new Date().toISOString(),
-              schoolId: userRole.school_id,
-              teacherRole: userRole.teacher_role
-            };
-          })
-        );
-        
-        console.log('Fallback user data:', usersWithProfiles);
-        return usersWithProfiles;
+        return [];
       }
       
       console.log('Raw user data:', data);
       
-      // Transform the data to match our User type
       const transformedUsers = data?.map(userRole => {
-        // Handle the case where profiles might be an array or a single object
-        const profile = Array.isArray(userRole.profiles) ? userRole.profiles[0] : userRole.profiles;
+        const profile = userRole.profiles;
         
         return {
           id: userRole.user_id,
@@ -154,7 +96,6 @@ const Users = () => {
     }
   });
   
-  // Update local state when data changes
   useEffect(() => {
     if (usersData) {
       setUsers(usersData);
@@ -191,7 +132,6 @@ const Users = () => {
       
       if (error) throw error;
       
-      // Update local state
       setUsers(users.map(user => 
         user.id === userId 
           ? { ...user, isActive: !currentStatus }
@@ -253,7 +193,7 @@ const Users = () => {
           </div>
         </div>
 
-        {/* Filters - Mobile Responsive */}
+        {/* Filters */}
         <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm mb-4 sm:mb-6">
           <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4">
             <div className="relative flex-1">
@@ -282,7 +222,7 @@ const Users = () => {
           </div>
         </div>
 
-        {/* Users Display - Mobile Responsive */}
+        {/* Users Display */}
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-t-2 border-b-2 border-tanzanian-blue"></div>
@@ -475,7 +415,7 @@ const Users = () => {
               </table>
             </div>
 
-            {/* Pagination - Mobile Responsive */}
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200">
                 <div className="flex-1 flex justify-between sm:hidden">
@@ -554,7 +494,7 @@ const Users = () => {
           </div>
         )}
 
-        {/* Users Statistics - Mobile Responsive */}
+        {/* Users Statistics */}
         <div className="mt-6 sm:mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {userRoles.filter(role => role.value !== 'all').map(role => {
             const count = users.filter(user => user.role === role.value).length;

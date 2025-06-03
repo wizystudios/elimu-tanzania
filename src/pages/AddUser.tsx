@@ -49,7 +49,7 @@ const AddUser = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.role) {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.role) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -58,7 +58,10 @@ const AddUser = () => {
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    // Use phone number as password if no password provided
+    const finalPassword = formData.password || formData.phone || 'defaultpass123';
+    
+    if (formData.password && formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
         description: "Passwords do not match",
@@ -67,7 +70,7 @@ const AddUser = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (finalPassword.length < 6) {
       toast({
         title: "Error",
         description: "Password must be at least 6 characters long",
@@ -79,11 +82,13 @@ const AddUser = () => {
     setIsSubmitting(true);
 
     try {
-      // Create user in Supabase Auth with the exact password specified
+      console.log('Creating user with data:', { email: formData.email, role: formData.role, schoolId });
+
+      // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
-        password: formData.password, // This ensures the password is set exactly as specified
-        email_confirm: true, // Auto-confirm email to avoid email verification
+        password: finalPassword,
+        email_confirm: true,
         user_metadata: {
           first_name: formData.firstName,
           last_name: formData.lastName
@@ -109,7 +114,8 @@ const AddUser = () => {
           first_name: formData.firstName,
           last_name: formData.lastName,
           email: formData.email,
-          phone: formData.phone || null
+          phone: formData.phone || null,
+          school_id: schoolId
         });
 
       if (profileError) {
@@ -132,9 +138,13 @@ const AddUser = () => {
         throw roleError;
       }
 
+      const passwordMessage = formData.password 
+        ? "They can now log in with their email and the password you specified."
+        : `They can now log in with their email and password: ${finalPassword}`;
+
       toast({
         title: "Success",
-        description: `${formData.firstName} ${formData.lastName} has been added successfully. They can now log in with their email and the password you specified.`
+        description: `${formData.firstName} ${formData.lastName} has been added successfully. ${passwordMessage}`
       });
 
       // Reset form
@@ -176,7 +186,7 @@ const AddUser = () => {
               <UserPlus className="h-7 w-7" />
               <span>Add New User</span>
             </h1>
-            <p className="text-gray-600">Create a new user account with the specified password</p>
+            <p className="text-gray-600">Create a new user account</p>
           </div>
         </div>
 
@@ -230,27 +240,26 @@ const AddUser = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password">Password (Optional)</Label>
                   <Input
                     id="password"
                     type="password"
                     value={formData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
-                    required
                     minLength={6}
-                    placeholder="Minimum 6 characters"
+                    placeholder="Leave blank to use phone number"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    required
                     minLength={6}
+                    disabled={!formData.password}
                   />
                 </div>
               </div>
@@ -273,7 +282,7 @@ const AddUser = () => {
 
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-md">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> The user will be able to log in immediately using their email address and the password you specify above. No email verification is required.
+                  <strong>Note:</strong> If no password is provided, the phone number will be used as the default password. The user can log in immediately.
                 </p>
               </div>
               
