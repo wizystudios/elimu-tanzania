@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -74,7 +75,8 @@ const Users = () => {
       console.log('Raw user data:', data);
       
       const transformedUsers = data?.map(userRole => {
-        const profile = userRole.profiles;
+        // Handle the profiles relationship properly
+        const profile = Array.isArray(userRole.profiles) ? userRole.profiles[0] : userRole.profiles;
         
         return {
           id: userRole.user_id,
