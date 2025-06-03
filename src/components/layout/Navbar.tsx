@@ -1,8 +1,8 @@
+
 import { useState } from 'react';
 import { Bell, Search, User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 
 const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,23 +43,18 @@ const Navbar = () => {
 
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 shadow-sm">
-      {/* Sidebar Toggle and Search */}
-      <div className="flex items-center space-x-4">
-        <SidebarTrigger className="text-gray-600 hover:text-gray-900" />
-        
-        {/* Search Bar */}
-        <div className="relative w-80">
-          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-tanzanian-blue focus:border-tanzanian-blue block w-full pl-10 p-2.5"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {/* Search Bar */}
+      <div className="relative w-1/3">
+        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <Search className="h-4 w-4 text-gray-400" />
         </div>
+        <input
+          type="text"
+          className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-tanzanian-blue focus:border-tanzanian-blue block w-full pl-10 p-2.5"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
       
       {/* School Name */}
@@ -83,7 +78,7 @@ const Navbar = () => {
           
           {/* Notifications Dropdown */}
           {isNotificationsOpen && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
               <div className="px-4 py-2 border-b border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-700">Notifications</h3>
               </div>
@@ -123,7 +118,7 @@ const Navbar = () => {
           
           {/* Profile Dropdown */}
           {isProfileOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
               <button 
                 onClick={() => {
                   setIsProfileOpen(false);

@@ -62,9 +62,8 @@ const App = () => (
             <Route path="/register-school" element={<RegisterSchool />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             
-            {/* Protected routes - both / and /dashboard point to Index */}
+            {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/schools" element={<ProtectedRoute><Schools /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
             <Route path="/users/add" element={<ProtectedRoute><AddUser /></ProtectedRoute>} />
