@@ -3,102 +3,237 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-
-// Import all pages
-import Index from "./pages/Index";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import RegisterSchool from "./pages/RegisterSchool";
+import Dashboard from "./pages/Index";
 import Schools from "./pages/Schools";
-import Users from "./pages/Users";
-import AddUser from "./pages/AddUser";
+import RegisterSchool from "./pages/RegisterSchool";
+import Students from "./pages/Students";
+import AddStudent from "./pages/AddStudent"; 
+import StudentAttendance from "./pages/StudentAttendance";
 import Teachers from "./pages/Teachers";
 import AddTeacher from "./pages/AddTeacher";
-import Students from "./pages/Students";
-import AddStudent from "./pages/AddStudent";
 import Parents from "./pages/Parents";
 import AddParent from "./pages/AddParent";
 import LinkParents from "./pages/LinkParents";
-import Subjects from "./pages/Subjects";
-import AddSubject from "./pages/AddSubject";
-import Classes from "./pages/Classes";
-import CreateClass from "./pages/CreateClass";
-import AssignTeachers from "./pages/AssignTeachers";
-import Calendar from "./pages/Calendar";
-import AddEvent from "./pages/AddEvent";
 import Exams from "./pages/Exams";
 import CreateExam from "./pages/CreateExam";
 import ExamResults from "./pages/ExamResults";
-import StudentAttendance from "./pages/StudentAttendance";
-import Messages from "./pages/Messages";
-import RealTimeChat from "./pages/RealTimeChat";
-import ImprovedRealTimeChat from "./pages/ImprovedRealTimeChat";
-import Chatbot from "./pages/Chatbot";
-import Announcements from "./pages/Announcements";
-import CreateAnnouncement from "./pages/CreateAnnouncement";
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import Users from "./pages/Users";
+import AddUser from "./pages/AddUser";
+import Classes from "./pages/Classes";
+import CreateClass from "./pages/CreateClass";
+import Subjects from "./pages/Subjects";
+import AddSubject from "./pages/AddSubject";
+import AssignTeachers from "./pages/AssignTeachers";
+import Announcements from "./pages/Announcements";
+import CreateAnnouncement from "./pages/CreateAnnouncement";
+import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
+import Calendar from "./pages/Calendar";
+import AddEvent from "./pages/AddEvent";
+import RealTimeChat from "./pages/RealTimeChat";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
+const AppWithProviders = () => (
+  <BrowserRouter>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        
+        {/* Redirect from root to dashboard when authenticated */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
+        
+        {/* School Management Routes */}
+        <Route path="/schools" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+            <Schools />
+          </ProtectedRoute>
+        } />
+        <Route path="/register-school" element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <RegisterSchool />
+          </ProtectedRoute>
+        } />
+        <Route path="/schools/:id" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>
+          </ProtectedRoute>
+        } />
+        <Route path="/schools/:id/edit" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit School</h1><p>This feature is coming soon.</p></div>
+          </ProtectedRoute>
+        } />
+        
+        {/* User Management Routes */}
+        <Route path="/users" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <Users />
+          </ProtectedRoute>
+        } />
+        <Route path="/users/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddUser />
+          </ProtectedRoute>
+        } />
+        <Route path="/students" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Students />
+          </ProtectedRoute>
+        } />
+        <Route path="/students/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddStudent />
+          </ProtectedRoute>
+        } />
+        <Route path="/students/attendance" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
+            <StudentAttendance />
+          </ProtectedRoute>
+        } />
+        <Route path="/teachers" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <Teachers />
+          </ProtectedRoute>
+        } />
+        <Route path="/teachers/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <AddTeacher />
+          </ProtectedRoute>
+        } />
+        <Route path="/teachers/assign" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <AssignTeachers />
+          </ProtectedRoute>
+        } />
+        <Route path="/parents" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
+            <Parents />
+          </ProtectedRoute>
+        } />
+        <Route path="/parents/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddParent />
+          </ProtectedRoute>
+        } />
+        <Route path="/parents/link" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <LinkParents />
+          </ProtectedRoute>
+        } />
+        
+        {/* Academic Management Routes */}
+        <Route path="/classes" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Classes />
+          </ProtectedRoute>
+        } />
+        <Route path="/classes/create" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <CreateClass />
+          </ProtectedRoute>
+        } />
+        <Route path="/subjects" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Subjects />
+          </ProtectedRoute>
+        } />
+        <Route path="/subjects/add" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <AddSubject />
+          </ProtectedRoute>
+        } />
+        <Route path="/exams" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Exams />
+          </ProtectedRoute>
+        } />
+        <Route path="/exams/create" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <CreateExam />
+          </ProtectedRoute>
+        } />
+        <Route path="/exams/results" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <ExamResults />
+          </ProtectedRoute>
+        } />
+        
+        {/* School Operations Routes */}
+        <Route path="/calendar" element={
+          <ProtectedRoute>
+            <Calendar />
+          </ProtectedRoute>
+        } />
+        <Route path="/calendar/add" element={
+          <ProtectedRoute>
+            <AddEvent />
+          </ProtectedRoute>
+        } />
+        <Route path="/announcements" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <Announcements />
+          </ProtectedRoute>
+        } />
+        <Route path="/announcements/create" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <CreateAnnouncement />
+          </ProtectedRoute>
+        } />
+        <Route path="/messages" element={
+          <ProtectedRoute>
+            <RealTimeChat />
+          </ProtectedRoute>
+        } />
+        
+        {/* User Account Routes */}
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        } />
+        
+        {/* Redirect root to dashboard if authenticated */}
+        <Route path="/" element={<Navigate to="/dashboard" />} />
+        
+        {/* Catch-All Route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
+  </BrowserRouter>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
+    <ThemeProvider defaultTheme="light" storageKey="elimu-theme">
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/landing" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/register-school" element={<RegisterSchool />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            
-            {/* Protected routes */}
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/schools" element={<ProtectedRoute><Schools /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
-            <Route path="/users/add" element={<ProtectedRoute><AddUser /></ProtectedRoute>} />
-            <Route path="/teachers" element={<ProtectedRoute><Teachers /></ProtectedRoute>} />
-            <Route path="/teachers/add" element={<ProtectedRoute><AddTeacher /></ProtectedRoute>} />
-            <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
-            <Route path="/students/add" element={<ProtectedRoute><AddStudent /></ProtectedRoute>} />
-            <Route path="/parents" element={<ProtectedRoute><Parents /></ProtectedRoute>} />
-            <Route path="/parents/add" element={<ProtectedRoute><AddParent /></ProtectedRoute>} />
-            <Route path="/parents/link" element={<ProtectedRoute><LinkParents /></ProtectedRoute>} />
-            <Route path="/subjects" element={<ProtectedRoute><Subjects /></ProtectedRoute>} />
-            <Route path="/subjects/add" element={<ProtectedRoute><AddSubject /></ProtectedRoute>} />
-            <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
-            <Route path="/classes/create" element={<ProtectedRoute><CreateClass /></ProtectedRoute>} />
-            <Route path="/classes/assign-teachers" element={<ProtectedRoute><AssignTeachers /></ProtectedRoute>} />
-            <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-            <Route path="/calendar/add-event" element={<ProtectedRoute><AddEvent /></ProtectedRoute>} />
-            <Route path="/exams" element={<ProtectedRoute><Exams /></ProtectedRoute>} />
-            <Route path="/exams/create" element={<ProtectedRoute><CreateExam /></ProtectedRoute>} />
-            <Route path="/exams/results" element={<ProtectedRoute><ExamResults /></ProtectedRoute>} />
-            <Route path="/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
-            <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-            <Route path="/real-time-chat" element={<ProtectedRoute><ImprovedRealTimeChat /></ProtectedRoute>} />
-            <Route path="/chatbot" element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
-            <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
-            <Route path="/announcements/create" element={<ProtectedRoute><CreateAnnouncement /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            
-            {/* 404 route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <AppWithProviders />
       </TooltipProvider>
-    </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
