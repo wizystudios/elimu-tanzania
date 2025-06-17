@@ -38,15 +38,10 @@ const NotFound = () => {
           text: "You might be looking for the Subjects page.",
           link: "/subjects"
         };
-      case 'dashboard':
-        return {
-          text: "You might be looking for the main Dashboard.",
-          link: "/"
-        };
       default:
         return {
           text: "Return to the main dashboard to navigate to available pages.",
-          link: "/"
+          link: "/dashboard"
         };
     }
   };
@@ -83,10 +78,10 @@ const NotFound = () => {
               className="flex items-center justify-center gap-2 bg-tanzanian-blue text-white py-2 px-6 rounded-md hover:bg-tanzanian-blue/90 transition-colors w-full"
             >
               <ArrowLeft className="h-4 w-4" />
-              Go to {mainSection === 'dashboard' ? 'Dashboard' : (mainSection || 'Dashboard')}
+              Go to {mainSection || 'Dashboard'}
             </Link>
             <Link 
-              to="/" 
+              to="/dashboard" 
               className="flex items-center justify-center gap-2 border border-tanzanian-blue text-tanzanian-blue py-2 px-6 rounded-md hover:bg-tanzanian-blue/10 transition-colors w-full"
             >
               Return to Dashboard

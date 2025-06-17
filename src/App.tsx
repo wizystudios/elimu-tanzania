@@ -49,11 +49,11 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
           <Routes>
             {/* Public routes */}
             <Route path="/landing" element={<LandingPage />} />
@@ -62,8 +62,9 @@ const App = () => (
             <Route path="/register-school" element={<RegisterSchool />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             
-            {/* Protected routes */}
+            {/* Protected routes - both / and /dashboard point to Index */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/schools" element={<ProtectedRoute><Schools /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
             <Route path="/users/add" element={<ProtectedRoute><AddUser /></ProtectedRoute>} />
@@ -96,9 +97,9 @@ const App = () => (
             {/* 404 route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </TooltipProvider>
-      </AuthProvider>
-    </BrowserRouter>
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
 
