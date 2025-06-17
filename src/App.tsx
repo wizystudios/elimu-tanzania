@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
@@ -62,9 +62,11 @@ const App = () => (
             <Route path="/register-school" element={<RegisterSchool />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
             
-            {/* Protected routes - both / and /dashboard point to Index */}
+            {/* Dashboard redirect route */}
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            
+            {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/schools" element={<ProtectedRoute><Schools /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
             <Route path="/users/add" element={<ProtectedRoute><AddUser /></ProtectedRoute>} />

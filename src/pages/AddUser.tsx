@@ -26,11 +26,13 @@ const AddUser = () => {
     password: '',
     confirmPassword: '',
     role: '' as UserRole | '',
-    phone: ''
+    phone: '',
+    teacherRole: ''
   });
 
   const userRoles: { value: UserRole, label: string }[] = [
-    { value: 'admin', label: 'Admin 🛡️' },
+    { value: 'super_admin', label: 'Super Admin 👑' },
+    { value: 'admin', label: 'School Admin 🛡️' },
     { value: 'headmaster', label: 'Headmaster 🎓' },
     { value: 'vice_headmaster', label: 'Vice Headmaster 📚' },
     { value: 'academic_teacher', label: 'Academic Teacher 🏆' },
@@ -39,11 +41,26 @@ const AddUser = () => {
     { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
   ];
 
+  const teacherRoles = [
+    { value: 'normal_teacher', label: 'Normal Teacher 📘' },
+    { value: 'headmaster', label: 'Headmaster 🧑‍💼' },
+    { value: 'vice_headmaster', label: 'Vice Headmaster 🧑‍💼' },
+    { value: 'academic_teacher', label: 'Academic Teacher 📚' },
+    { value: 'discipline_teacher', label: 'Discipline Teacher 🚨' },
+    { value: 'sports_teacher', label: 'Sports Teacher 🏅' },
+    { value: 'environment_teacher', label: 'Environment Teacher 🌱' }
+  ];
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const generateDefaultPassword = () => {
+    // Use phone number if available, otherwise generate a default password
+    return formData.phone || 'ElimuTZ123';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,9 +75,10 @@ const AddUser = () => {
       return;
     }
 
-    // Use phone number as password if no password provided
-    const finalPassword = formData.password || formData.phone || 'defaultpass123';
-    
+    // Set default password if not provided
+    const password = formData.password || generateDefaultPassword();
+    const confirmPassword = formData.confirmPassword || password;
+
     if (formData.password && formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
@@ -70,7 +88,7 @@ const AddUser = () => {
       return;
     }
 
-    if (finalPassword.length < 6) {
+    if (password.length < 6) {
       toast({
         title: "Error",
         description: "Password must be at least 6 characters long",
@@ -82,16 +100,18 @@ const AddUser = () => {
     setIsSubmitting(true);
 
     try {
-      console.log('Creating user with data:', { email: formData.email, role: formData.role, schoolId });
-
+      console.log('Creating user with role:', formData.role);
+      
       // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
-        password: finalPassword,
+        password: password,
         email_confirm: true,
         user_metadata: {
           first_name: formData.firstName,
-          last_name: formData.lastName
+          last_name: formData.lastName,
+          role: formData.role,
+          phone: formData.phone
         }
       });
 
@@ -124,14 +144,22 @@ const AddUser = () => {
       }
 
       // Create user role
+      const roleData: any = {
+        user_id: authData.user.id,
+        role: formData.role,
+        school_id: schoolId,
+        is_active: true
+      };
+
+      // Add teacher role if it's a teacher
+      if (formData.role === 'teacher' || formData.role === 'academic_teacher' || 
+          formData.role === 'headmaster' || formData.role === 'vice_headmaster') {
+        roleData.teacher_role = formData.teacherRole || 'normal_teacher';
+      }
+
       const { error: roleError } = await supabase
         .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          role: formData.role,
-          school_id: schoolId,
-          is_active: true
-        });
+        .insert(roleData);
 
       if (roleError) {
         console.error('Role creation error:', roleError);
@@ -139,12 +167,12 @@ const AddUser = () => {
       }
 
       const passwordMessage = formData.password 
-        ? "They can now log in with their email and the password you specified."
-        : `They can now log in with their email and password: ${finalPassword}`;
+        ? "with the password you specified" 
+        : `with password: ${password} (default password used)`;
 
       toast({
         title: "Success",
-        description: `${formData.firstName} ${formData.lastName} has been added successfully. ${passwordMessage}`
+        description: `${formData.firstName} ${formData.lastName} has been added successfully. They can now log in with their email and ${passwordMessage}.`
       });
 
       // Reset form
@@ -155,7 +183,8 @@ const AddUser = () => {
         password: '',
         confirmPassword: '',
         role: '' as UserRole | '',
-        phone: ''
+        phone: '',
+        teacherRole: ''
       });
 
       // Navigate back to users list
@@ -173,6 +202,8 @@ const AddUser = () => {
     }
   };
 
+  const isTeacherRole = ['teacher', 'academic_teacher', 'headmaster', 'vice_headmaster'].includes(formData.role);
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -186,7 +217,7 @@ const AddUser = () => {
               <UserPlus className="h-7 w-7" />
               <span>Add New User</span>
             </h1>
-            <p className="text-gray-600">Create a new user account</p>
+            <p className="text-gray-600">Create a new user account with role-based access</p>
           </div>
         </div>
 
@@ -247,21 +278,23 @@ const AddUser = () => {
                     value={formData.password}
                     onChange={(e) => handleInputChange('password', e.target.value)}
                     minLength={6}
-                    placeholder="Leave blank to use phone number"
+                    placeholder="Leave empty to use phone as password"
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                    minLength={6}
-                    disabled={!formData.password}
-                  />
-                </div>
+                {formData.password && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -280,9 +313,27 @@ const AddUser = () => {
                 </Select>
               </div>
 
+              {isTeacherRole && (
+                <div className="space-y-2">
+                  <Label htmlFor="teacherRole">Teacher Specialization</Label>
+                  <Select onValueChange={(value) => handleInputChange('teacherRole', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select teacher specialization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teacherRoles.map((role) => (
+                        <SelectItem key={role.value} value={role.value}>
+                          {role.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-md">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> If no password is provided, the phone number will be used as the default password. The user can log in immediately.
+                  <strong>Password Info:</strong> If no password is provided, the system will use the phone number as the default password (minimum 6 characters). The user can change it after first login.
                 </p>
               </div>
               
