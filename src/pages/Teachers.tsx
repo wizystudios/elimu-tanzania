@@ -87,9 +87,9 @@ const Teachers = () => {
           const subjectData = relation.subjects;
           // Handle the case where subjects might be an array or a single object
           if (Array.isArray(subjectData)) {
-            return subjectData.length > 0 ? subjectData[0].name : null;
+            return subjectData.length > 0 ? (subjectData[0] as SubjectData).name : null;
           } else if (subjectData && typeof subjectData === 'object' && 'name' in subjectData) {
-            return subjectData.name;
+            return (subjectData as SubjectData).name;
           }
           return null;
         }).filter(Boolean);
