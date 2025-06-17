@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 type TeacherRole = 
@@ -38,7 +37,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
 
   const fetchUserData = async (userId: string | undefined) => {
     if (!userId) return;
@@ -137,13 +135,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
       toast.success("Umetoka kwenye akaunti yako");
-      navigate('/login');
     } catch (error) {
       console.error("Error signing out:", error);
       toast.error("Hitilafu imetokea wakati wa kutoka kwenye akaunti yako");
