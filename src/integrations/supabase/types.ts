@@ -501,13 +501,43 @@ export type Database = {
           },
         ]
       }
+      phone_auth: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          phone_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phone_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phone_number?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
+          date_of_birth: string | null
           email: string
           first_name: string
+          gender: string | null
           id: string
           last_name: string
+          national_id: string | null
           phone: string | null
           profile_image: string | null
           school_id: string | null
@@ -515,10 +545,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          date_of_birth?: string | null
           email: string
           first_name: string
+          gender?: string | null
           id: string
           last_name: string
+          national_id?: string | null
           phone?: string | null
           profile_image?: string | null
           school_id?: string | null
@@ -526,10 +559,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          date_of_birth?: string | null
           email?: string
           first_name?: string
+          gender?: string | null
           id?: string
           last_name?: string
+          national_id?: string | null
           phone?: string | null
           profile_image?: string | null
           school_id?: string | null
@@ -822,6 +858,7 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           is_active: boolean
           role: Database["public"]["Enums"]["user_role"]
@@ -832,6 +869,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
           role: Database["public"]["Enums"]["user_role"]
@@ -842,6 +880,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           is_active?: boolean
           role?: Database["public"]["Enums"]["user_role"]
@@ -862,7 +901,34 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      user_details: {
+        Row: {
+          auth_phone: string | null
+          date_of_birth: string | null
+          email: string | null
+          first_name: string | null
+          gender: string | null
+          id: string | null
+          is_active: boolean | null
+          last_name: string | null
+          national_id: string | null
+          phone: string | null
+          profile_image: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          school_id: string | null
+          school_name: string | null
+          teacher_role: Database["public"]["Enums"]["teacher_role"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never

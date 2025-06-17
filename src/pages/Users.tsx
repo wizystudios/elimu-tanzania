@@ -6,20 +6,33 @@ import { Button } from '@/components/ui/button';
 import { User, Search, Plus, Filter, UserPlus, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { User as UserType, UserRole } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+
+interface UserData {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  profile_image?: string;
+  role: string;
+  teacher_role?: string;
+  school_name?: string;
+  is_active: boolean;
+  created_at: string;
+}
 
 const Users = () => {
   const { schoolId } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole | 'all'>('all');
-  const [users, setUsers] = useState<UserType[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [users, setUsers] = useState<UserData[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const itemsPerPage = 10; // Increased for better mobile experience
+  const itemsPerPage = 10;
   
   // Get all available roles for filter options
-  const userRoles: { value: UserRole | 'all', label: string }[] = [
+  const userRoles = [
     { value: 'all', label: 'All Roles' },
     { value: 'super_admin', label: 'Super Admin 👑' },
     { value: 'admin', label: 'Admin 🛡️' },
@@ -31,32 +44,15 @@ const Users = () => {
     { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
   ];
 
-  // Fixed query to properly join user_roles and profiles tables
+  // Use the new user_details view for fetching user data
   const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ['users', selectedRole, schoolId],
     queryFn: async () => {
       console.log('Fetching users for school:', schoolId);
       
-      // Get user roles with profile information using proper joins
       let query = supabase
-        .from('user_roles')
-        .select(`
-          id,
-          user_id,
-          role,
-          teacher_role,
-          is_active,
-          school_id,
-          profiles!user_roles_user_id_fkey (
-            id,
-            first_name,
-            last_name,
-            email,
-            phone,
-            profile_image,
-            created_at
-          )
-        `);
+        .from('user_details')
+        .select('*');
       
       // Filter by school if not super_admin viewing all
       if (schoolId && selectedRole !== 'super_admin') {
@@ -71,86 +67,11 @@ const Users = () => {
       
       if (error) {
         console.error('Error fetching users:', error);
-        // Fallback query if the foreign key reference fails
-        const fallbackQuery = supabase
-          .from('user_roles')
-          .select(`
-            id,
-            user_id,
-            role,
-            teacher_role,
-            is_active,
-            school_id
-          `);
-          
-        if (schoolId && selectedRole !== 'super_admin') {
-          fallbackQuery.eq('school_id', schoolId);
-        }
-        
-        if (selectedRole !== 'all') {
-          fallbackQuery.eq('role', selectedRole);
-        }
-        
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-        
-        if (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          return [];
-        }
-        
-        // Manually fetch profiles for each user
-        const usersWithProfiles = await Promise.all(
-          (fallbackData || []).map(async (userRole) => {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', userRole.user_id)
-              .single();
-              
-            return {
-              id: userRole.user_id,
-              firstName: profile?.first_name || '',
-              lastName: profile?.last_name || '',
-              email: profile?.email || '',
-              role: userRole.role as UserRole,
-              profileImage: profile?.profile_image || undefined,
-              phoneNumber: profile?.phone || '',
-              isActive: userRole.is_active,
-              createdAt: profile?.created_at || new Date().toISOString(),
-              schoolId: userRole.school_id,
-              teacherRole: userRole.teacher_role
-            };
-          })
-        );
-        
-        console.log('Fallback user data:', usersWithProfiles);
-        return usersWithProfiles;
+        return [];
       }
       
-      console.log('Raw user data:', data);
-      
-      // Transform the data to match our User type
-      const transformedUsers = data?.map(userRole => {
-        // Handle the case where profiles might be an array or a single object
-        const profile = Array.isArray(userRole.profiles) ? userRole.profiles[0] : userRole.profiles;
-        
-        return {
-          id: userRole.user_id,
-          firstName: profile?.first_name || '',
-          lastName: profile?.last_name || '',
-          email: profile?.email || '',
-          role: userRole.role as UserRole,
-          profileImage: profile?.profile_image || undefined,
-          phoneNumber: profile?.phone || '',
-          isActive: userRole.is_active,
-          createdAt: profile?.created_at || new Date().toISOString(),
-          schoolId: userRole.school_id,
-          teacherRole: userRole.teacher_role
-        };
-      }) || [];
-      
-      console.log('Transformed users:', transformedUsers);
-      return transformedUsers;
+      console.log('Fetched user data:', data);
+      return data || [];
     }
   });
   
@@ -163,10 +84,10 @@ const Users = () => {
 
   // Filter users based on search query
   const filteredUsers = users.filter((user) => {
-    const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+    const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
     return fullName.includes(searchQuery.toLowerCase()) || 
            user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           user.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase());
+           (user.phone && user.phone.toLowerCase().includes(searchQuery.toLowerCase()));
   });
 
   // Pagination logic
@@ -176,7 +97,7 @@ const Users = () => {
   const currentUsers = filteredUsers.slice(startIndex, endIndex);
 
   // Function to get role display label with emoji
-  const getRoleLabel = (role: UserRole): string => {
+  const getRoleLabel = (role: string): string => {
     const roleOption = userRoles.find(r => r.value === role);
     return roleOption ? roleOption.label : role.replace('_', ' ');
   };
@@ -194,7 +115,7 @@ const Users = () => {
       // Update local state
       setUsers(users.map(user => 
         user.id === userId 
-          ? { ...user, isActive: !currentStatus }
+          ? { ...user, is_active: !currentStatus }
           : user
       ));
     } catch (error) {
@@ -272,7 +193,7 @@ const Users = () => {
               <select 
                 className="border border-gray-300 rounded-md px-2 sm:px-3 py-1 text-sm"
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as UserRole | 'all')}
+                onChange={(e) => setSelectedRole(e.target.value)}
               >
                 {userRoles.map((role) => (
                   <option key={role.value} value={role.value}>{role.label}</option>
@@ -308,11 +229,11 @@ const Users = () => {
                         className="rounded border-gray-300"
                       />
                       <div className="h-10 w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {user.profileImage ? (
+                        {user.profile_image ? (
                           <img
                             className="h-10 w-10 object-cover"
-                            src={user.profileImage}
-                            alt={`${user.firstName} ${user.lastName}`}
+                            src={user.profile_image}
+                            alt={`${user.first_name} ${user.last_name}`}
                           />
                         ) : (
                           <User className="h-5 w-5 text-tanzanian-blue" />
@@ -320,7 +241,7 @@ const Users = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-900 truncate">
-                          {user.firstName} {user.lastName}
+                          {user.first_name} {user.last_name}
                           {user.role === 'super_admin' && <span className="ml-1">👑</span>}
                         </div>
                         <div className="text-xs text-gray-500 truncate">{user.email}</div>
@@ -329,11 +250,11 @@ const Users = () => {
                             {getRoleLabel(user.role)}
                           </span>
                           <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            user.isActive 
+                            user.is_active 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            {user.isActive ? '✅ Active' : '❌ Inactive'}
+                            {user.is_active ? '✅ Active' : '❌ Inactive'}
                           </span>
                         </div>
                       </div>
@@ -347,14 +268,14 @@ const Users = () => {
                       Edit
                     </Link>
                     <button
-                      onClick={() => toggleUserStatus(user.id, user.isActive)}
+                      onClick={() => toggleUserStatus(user.id, user.is_active)}
                       className={`${
-                        user.isActive 
+                        user.is_active 
                           ? 'text-red-600 hover:text-red-800' 
                           : 'text-green-600 hover:text-green-800'
                       }`}
                     >
-                      {user.isActive ? 'Deactivate' : 'Activate'}
+                      {user.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                   </div>
                 </div>
@@ -402,11 +323,11 @@ const Users = () => {
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-tanzanian-blue/10 flex items-center justify-center overflow-hidden">
-                            {user.profileImage ? (
+                            {user.profile_image ? (
                               <img
                                 className="h-8 w-8 sm:h-10 sm:w-10 object-cover"
-                                src={user.profileImage}
-                                alt={`${user.firstName} ${user.lastName}`}
+                                src={user.profile_image}
+                                alt={`${user.first_name} ${user.last_name}`}
                               />
                             ) : (
                               <User className="h-4 w-4 sm:h-5 sm:w-5 text-tanzanian-blue" />
@@ -414,7 +335,7 @@ const Users = () => {
                           </div>
                           <div className="ml-3 sm:ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {user.firstName} {user.lastName}
+                              {user.first_name} {user.last_name}
                               {user.role === 'super_admin' && <span className="ml-1">👑</span>}
                             </div>
                             <div className="text-sm text-gray-500">{user.email}</div>
@@ -425,29 +346,29 @@ const Users = () => {
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                           {getRoleLabel(user.role)}
                         </span>
-                        {user.teacherRole && (
+                        {user.teacher_role && (
                           <div className="mt-1">
                             <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              {user.teacherRole.replace('_', ' ')}
+                              {user.teacher_role.replace('_', ' ')}
                             </span>
                           </div>
                         )}
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div>{user.email}</div>
-                        <div>{user.phoneNumber}</div>
+                        <div>{user.phone}</div>
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.isActive 
+                          user.is_active 
                             ? 'bg-green-100 text-green-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
-                          {user.isActive ? '✅ Active' : '❌ Inactive'}
+                          {user.is_active ? '✅ Active' : '❌ Inactive'}
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(user.createdAt).toLocaleDateString()}
+                        {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
@@ -458,14 +379,14 @@ const Users = () => {
                             Edit
                           </Link>
                           <button
-                            onClick={() => toggleUserStatus(user.id, user.isActive)}
+                            onClick={() => toggleUserStatus(user.id, user.is_active)}
                             className={`${
-                              user.isActive 
+                              user.is_active 
                                 ? 'text-red-600 hover:text-red-800' 
                                 : 'text-green-600 hover:text-green-800'
                             }`}
                           >
-                            {user.isActive ? 'Deactivate' : 'Activate'}
+                            {user.is_active ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>
                       </td>

@@ -7,12 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAuthData } from '@/hooks/useAuthData';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, Building, Shield } from 'lucide-react';
+import { User, Mail, Phone, Building, Shield, Calendar, Hash } from 'lucide-react';
 
 const Profile = () => {
-  const { user, userRole, schoolName } = useAuth();
+  const { user } = useAuth();
+  const { userDetails, isLoading: userLoading } = useAuthData();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState({
@@ -20,40 +22,26 @@ const Profile = () => {
     lastName: '',
     email: '',
     phone: '',
+    nationalId: '',
+    dateOfBirth: '',
+    gender: 'male',
     profileImage: ''
   });
 
   useEffect(() => {
-    if (user) {
-      fetchProfile();
+    if (userDetails) {
+      setProfile({
+        firstName: userDetails.first_name || '',
+        lastName: userDetails.last_name || '',
+        email: userDetails.email || '',
+        phone: userDetails.phone || '',
+        nationalId: userDetails.national_id || '',
+        dateOfBirth: userDetails.date_of_birth || '',
+        gender: userDetails.gender || 'male',
+        profileImage: userDetails.profile_image || ''
+      });
     }
-  }, [user]);
-
-  const fetchProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setProfile({
-          firstName: data.first_name || '',
-          lastName: data.last_name || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          profileImage: data.profile_image || ''
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
+  }, [userDetails]);
 
   const updateProfile = async () => {
     if (!user) return;
@@ -65,7 +53,10 @@ const Profile = () => {
         .update({
           first_name: profile.firstName,
           last_name: profile.lastName,
-          phone: profile.phone
+          phone: profile.phone,
+          national_id: profile.nationalId,
+          date_of_birth: profile.dateOfBirth || null,
+          gender: profile.gender
         })
         .eq('id', user.id);
 
@@ -86,6 +77,16 @@ const Profile = () => {
       setIsLoading(false);
     }
   };
+
+  if (userLoading) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center py-10">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tanzanian-blue"></div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>
@@ -117,12 +118,24 @@ const Profile = () => {
                 </h3>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <Shield className="h-4 w-4" />
-                  <span className="capitalize">{userRole?.replace('_', ' ')}</span>
+                  <span className="capitalize">{userDetails?.role?.replace('_', ' ')}</span>
                 </div>
-                {schoolName && (
+                {userDetails?.school_name && (
                   <div className="flex items-center space-x-2 text-sm text-gray-500 mt-2">
                     <Building className="h-4 w-4" />
-                    <span>{schoolName}</span>
+                    <span>{userDetails.school_name}</span>
+                  </div>
+                )}
+                {userDetails?.national_id && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-500 mt-2">
+                    <Hash className="h-4 w-4" />
+                    <span>ID: {userDetails.national_id}</span>
+                  </div>
+                )}
+                {userDetails?.date_of_birth && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-500 mt-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>{new Date(userDetails.date_of_birth).toLocaleDateString()}</span>
                   </div>
                 )}
               </div>
@@ -169,16 +182,52 @@ const Profile = () => {
                 <p className="text-xs text-gray-500">Email cannot be changed</p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <div className="flex items-center space-x-2">
-                  <Phone className="h-4 w-4 text-gray-400" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    <Input
+                      id="phone"
+                      value={profile.phone}
+                      onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+255 XXX XXX XXX"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nationalId">National ID</Label>
                   <Input
-                    id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="+255 XXX XXX XXX"
+                    id="nationalId"
+                    value={profile.nationalId}
+                    onChange={(e) => setProfile(prev => ({ ...prev, nationalId: e.target.value }))}
+                    placeholder="Enter your national ID"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={profile.dateOfBirth}
+                    onChange={(e) => setProfile(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <select
+                    id="gender"
+                    value={profile.gender}
+                    onChange={(e) => setProfile(prev => ({ ...prev, gender: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-tanzanian-blue"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
               </div>
 

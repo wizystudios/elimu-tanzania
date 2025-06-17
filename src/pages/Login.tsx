@@ -18,6 +18,8 @@ import {
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 import { supabase } from '@/integrations/supabase/client';
+import PhoneAuthModal from '@/components/auth/PhoneAuthModal';
+import { Phone } from 'lucide-react';
 
 const formSchema = z.object({
   school: z.string().min(2, {
@@ -34,6 +36,7 @@ const formSchema = z.object({
 const Login = () => {
   const [isSchoolFound, setIsSchoolFound] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPhoneAuth, setShowPhoneAuth] = useState(false);
   const navigate = useNavigate();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -100,12 +103,12 @@ const Login = () => {
         return;
       }
       
-      // Check if user has any role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role, teacher_role, school_id')
-        .eq('user_id', authData.user.id)
-        .maybeSingle();
+      // Check if user has any role using the new user_details view
+      const { data: userDetails, error: roleError } = await supabase
+        .from('user_details')
+        .select('role, teacher_role, school_id, school_name')
+        .eq('id', authData.user.id)
+        .single();
       
       if (roleError) {
         console.error("Error checking role:", roleError);
@@ -113,7 +116,7 @@ const Login = () => {
         return;
       }
       
-      if (!roleData) {
+      if (!userDetails) {
         toast.error(`Huna jukumu katika mfumo.`);
         // Sign out since no role found
         await supabase.auth.signOut();
@@ -122,7 +125,7 @@ const Login = () => {
       
       // Successful login
       toast.success("Umeingia kwa mafanikio!", {
-        description: `Karibu kwenye akaunti yako ya ${getRoleLabel(roleData.role)}.`,
+        description: `Karibu kwenye akaunti yako ya ${getRoleLabel(userDetails.role)}.`,
       });
       
       // Redirect to dashboard
@@ -251,6 +254,19 @@ const Login = () => {
                   >
                     {isLoading ? "Inaingia..." : "Ingia"}
                   </Button>
+
+                  <div className="text-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowPhoneAuth(true)}
+                      className="w-full flex items-center space-x-2"
+                      disabled={isLoading}
+                    >
+                      <Phone className="h-4 w-4" />
+                      <span>Ingia kwa Nambari ya Simu</span>
+                    </Button>
+                  </div>
                   
                   <div className="text-center text-sm">
                     <button 
@@ -283,6 +299,15 @@ const Login = () => {
           </div>
         </CardFooter>
       </Card>
+
+      <PhoneAuthModal
+        isOpen={showPhoneAuth}
+        onClose={() => setShowPhoneAuth(false)}
+        onSuccess={() => {
+          setShowPhoneAuth(false);
+          toast.success("Phone authentication successful!");
+        }}
+      />
     </div>
   );
 };

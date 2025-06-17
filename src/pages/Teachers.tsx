@@ -5,45 +5,53 @@ import MainLayout from '@/components/layout/MainLayout';
 import { User, Search, Plus, Mail, Phone, GraduationCap, BookOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SubjectData {
   id: string;
   name: string;
 }
 
-interface TeacherSubjectRelation {
-  teacher_id: string;
-  subjects: SubjectData | SubjectData[] | null;
+interface TeacherData {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  profile_image?: string;
+  teacher_role?: string;
+  is_active: boolean;
+  subjects: string[];
+  classes: string[];
 }
 
 const Teachers = () => {
+  const { schoolId } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Fetch teachers data from Supabase
+  // Fetch teachers data using the user_details view
   const { data: teachers, isLoading } = useQuery({
-    queryKey: ['teachers'],
+    queryKey: ['teachers', schoolId],
     queryFn: async () => {
-      // Get all users with teacher role
-      const { data: teacherRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, teacher_role')
-        .eq('role', 'teacher');
+      console.log('Fetching teachers for school:', schoolId);
+
+      // Get all teachers from user_details view
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('user_details')
+        .select('*')
+        .eq('role', 'teacher')
+        .eq('school_id', schoolId);
       
-      if (rolesError) throw rolesError;
-      
-      if (!teacherRoles || teacherRoles.length === 0) {
+      if (teacherError) {
+        console.error('Error fetching teachers:', teacherError);
+        return [];
+      }
+
+      if (!teacherData || teacherData.length === 0) {
         return [];
       }
       
-      // Get teacher profiles
-      const teacherIds = teacherRoles.map(role => role.user_id);
-      
-      const { data: teacherProfiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email, profile_image, phone')
-        .in('id', teacherIds);
-        
-      if (profilesError) throw profilesError;
+      const teacherIds = teacherData.map(teacher => teacher.id);
       
       // Get subjects taught by teachers
       const { data: teacherSubjects, error: subjectsError } = await supabase
@@ -71,18 +79,15 @@ const Teachers = () => {
         console.error('Error fetching classes:', classesError);
       }
       
-      // Map teacher profiles with their subjects and classes
-      return teacherProfiles?.map(teacher => {
-        const teacherRole = teacherRoles.find(role => role.user_id === teacher.id);
-        
-        // Get subjects taught by this teacher - handle array structure properly
-        const subjectRelations = (teacherSubjects as TeacherSubjectRelation[])?.filter(ts => ts.teacher_id === teacher.id) || [];
+      // Map teacher data with their subjects and classes
+      return teacherData.map(teacher => {
+        // Get subjects taught by this teacher
+        const subjectRelations = teacherSubjects?.filter(ts => ts.teacher_id === teacher.id) || [];
         const subjects = subjectRelations.map(relation => {
           const subject = relation.subjects as SubjectData;
-          // Handle case where subjects might be an array or object or null
           if (Array.isArray(subject) && subject.length > 0) {
             return subject[0]?.name || null;
-          } else if (subject && !Array.isArray(subject) && typeof subject === 'object' && 'name' in subject) {
+          } else if (subject && typeof subject === 'object' && 'name' in subject) {
             return subject.name;
           }
           return null;
@@ -93,27 +98,26 @@ const Teachers = () => {
         
         return {
           id: teacher.id,
-          firstName: teacher.first_name,
-          lastName: teacher.last_name,
+          first_name: teacher.first_name,
+          last_name: teacher.last_name,
           email: teacher.email,
-          profileImage: teacher.profile_image,
-          phoneNumber: teacher.phone || '',
-          role: 'teacher',
-          teacherRole: teacherRole?.teacher_role || 'normal_teacher',
+          phone: teacher.phone,
+          profile_image: teacher.profile_image,
+          teacher_role: teacher.teacher_role || 'normal_teacher',
+          is_active: teacher.is_active,
           subjects: subjects,
           classes: homeroomClasses,
-          isActive: true
         };
-      }) || [];
+      });
     }
   });
   
   // Filter teachers based on search query
   const filteredTeachers = teachers?.filter((teacher) => {
-    const fullName = `${teacher.firstName} ${teacher.lastName}`.toLowerCase();
+    const fullName = `${teacher.first_name} ${teacher.last_name}`.toLowerCase();
     return fullName.includes(searchQuery.toLowerCase()) || 
            teacher.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           teacher.phoneNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           (teacher.phone && teacher.phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
            teacher.subjects.some((subject: string) => subject.toLowerCase().includes(searchQuery.toLowerCase()));
   });
 
@@ -161,19 +165,19 @@ const Teachers = () => {
                   <div className="p-6">
                     <div className="flex items-center space-x-4 mb-4">
                       <div className="h-12 w-12 rounded-full bg-tanzanian-blue/10 flex items-center justify-center overflow-hidden">
-                        {teacher.profileImage ? (
+                        {teacher.profile_image ? (
                           <img
                             className="h-12 w-12 object-cover"
-                            src={teacher.profileImage}
-                            alt={`${teacher.firstName} ${teacher.lastName}`}
+                            src={teacher.profile_image}
+                            alt={`${teacher.first_name} ${teacher.last_name}`}
                           />
                         ) : (
                           <User className="h-6 w-6 text-tanzanian-blue" />
                         )}
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold">{teacher.firstName} {teacher.lastName}</h3>
-                        <p className="text-sm text-gray-500 capitalize">{teacher.teacherRole.replace('_', ' ')}</p>
+                        <h3 className="text-lg font-semibold">{teacher.first_name} {teacher.last_name}</h3>
+                        <p className="text-sm text-gray-500 capitalize">{teacher.teacher_role.replace('_', ' ')}</p>
                       </div>
                     </div>
 
@@ -182,10 +186,10 @@ const Teachers = () => {
                         <Mail className="h-4 w-4 text-gray-400 mt-0.5" />
                         <p className="text-sm text-gray-600">{teacher.email}</p>
                       </div>
-                      {teacher.phoneNumber && (
+                      {teacher.phone && (
                         <div className="flex items-start space-x-2">
                           <Phone className="h-4 w-4 text-gray-400 mt-0.5" />
-                          <p className="text-sm text-gray-600">{teacher.phoneNumber}</p>
+                          <p className="text-sm text-gray-600">{teacher.phone}</p>
                         </div>
                       )}
                     </div>
@@ -230,11 +234,11 @@ const Teachers = () => {
 
                     <div className="mt-4 flex items-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        teacher.isActive 
+                        teacher.is_active 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {teacher.isActive ? 'Active' : 'Inactive'}
+                        {teacher.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </div>
