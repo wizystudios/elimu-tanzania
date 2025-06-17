@@ -20,7 +20,8 @@ export const mockExams: Exam[] = [
     status: 'scheduled',
     totalMarks: 100,
     passingScore: 40,
-    description: 'Cover chapters 1-6 from the curriculum textbook.'
+    description: 'Cover chapters 1-6 from the curriculum textbook.',
+    examType: 'internal'
   },
   {
     id: '2',
@@ -32,7 +33,8 @@ export const mockExams: Exam[] = [
     status: 'scheduled',
     totalMarks: 60,
     passingScore: 30,
-    description: 'Focus on plants, animals, and basic human anatomy.'
+    description: 'Focus on plants, animals, and basic human anatomy.',
+    examType: 'internal'
   },
   {
     id: '3',
@@ -44,7 +46,8 @@ export const mockExams: Exam[] = [
     status: 'in_progress',
     totalMarks: 50,
     passingScore: 25,
-    description: 'Reading comprehension, grammar, and vocabulary.'
+    description: 'Reading comprehension, grammar, and vocabulary.',
+    examType: 'internal'
   },
   {
     id: '4',
@@ -56,7 +59,8 @@ export const mockExams: Exam[] = [
     status: 'in_progress',
     totalMarks: 80,
     passingScore: 40,
-    description: 'Comprehensive test on grammar, vocabulary, and writing.'
+    description: 'Comprehensive test on grammar, vocabulary, and writing.',
+    examType: 'internal'
   },
   {
     id: '5',
@@ -68,7 +72,8 @@ export const mockExams: Exam[] = [
     status: 'scheduled',
     totalMarks: 120,
     passingScore: 60,
-    description: 'Comprehensive examination covering the entire syllabus.'
+    description: 'Comprehensive examination covering the entire syllabus.',
+    examType: 'necta'
   },
   {
     id: '6',
@@ -80,7 +85,8 @@ export const mockExams: Exam[] = [
     status: 'scheduled',
     totalMarks: 20,
     passingScore: 10,
-    description: 'Simple counting and basic number recognition assessment.'
+    description: 'Simple counting and basic number recognition assessment.',
+    examType: 'internal'
   },
   {
     id: '7',
@@ -92,7 +98,8 @@ export const mockExams: Exam[] = [
     status: 'scheduled',
     totalMarks: 60,
     passingScore: 30,
-    description: 'Laboratory-based practical examination on electromagnetics.'
+    description: 'Laboratory-based practical examination on electromagnetics.',
+    examType: 'internal'
   },
   {
     id: '8',
@@ -104,7 +111,8 @@ export const mockExams: Exam[] = [
     status: 'completed',
     totalMarks: 50,
     passingScore: 25,
-    description: 'Unit test on organic chemistry fundamentals.'
+    description: 'Unit test on organic chemistry fundamentals.',
+    examType: 'internal'
   },
   {
     id: '9',
@@ -116,7 +124,8 @@ export const mockExams: Exam[] = [
     status: 'completed',
     totalMarks: 120,
     passingScore: 60,
-    description: 'Full mock examination in preparation for final exams.'
+    description: 'Full mock examination in preparation for final exams.',
+    examType: 'mock'
   },
   {
     id: '10',
@@ -128,7 +137,8 @@ export const mockExams: Exam[] = [
     status: 'completed',
     totalMarks: 30,
     passingScore: 15,
-    description: 'Quick assessment on map reading skills.'
+    description: 'Quick assessment on map reading skills.',
+    examType: 'internal'
   },
   {
     id: '11',
@@ -140,7 +150,8 @@ export const mockExams: Exam[] = [
     status: 'scheduled',
     totalMarks: 30,
     passingScore: 15,
-    description: 'Quiz on community and citizenship.'
+    description: 'Quiz on community and citizenship.',
+    examType: 'internal'
   },
   {
     id: '12',
@@ -152,6 +163,7 @@ export const mockExams: Exam[] = [
     status: 'completed',
     totalMarks: 50,
     passingScore: 20,
-    description: 'Assessment of basic drawing and coloring skills.'
+    description: 'Assessment of basic drawing and coloring skills.',
+    examType: 'internal'
   },
 ];

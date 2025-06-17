@@ -1,4 +1,3 @@
-
 import { School, User, Student, Teacher, Class, Subject, TeacherRole } from '../types';
 
 // Mock Schools
@@ -211,7 +210,9 @@ export const students: Student[] = [
       contact: '+255 787 654 321'
     },
     enrollmentDate: '2023-01-10',
-    currentClass: 'Class 4A'
+    currentClass: 'Class 4A',
+    birthCertificateNumber: 'BC/2013/DSM/001234',
+    homeAddress: 'Mwenge, Kinondoni, Dar es Salaam'
   },
   {
     id: '2',
@@ -226,7 +227,9 @@ export const students: Student[] = [
       contact: '+255 756 123 789'
     },
     enrollmentDate: '2023-01-15',
-    currentClass: 'Chekechea A'
+    currentClass: 'Chekechea A',
+    birthCertificateNumber: 'BC/2018/ARU/005678',
+    homeAddress: 'Sakina, Arusha City, Arusha'
   }
 ];
 
@@ -242,7 +245,10 @@ export const teachers: Teacher[] = [
     qualifications: ['B.Ed in Education', 'Diploma in Mathematics'],
     dateOfBirth: '1988-03-15',
     gender: 'male',
-    hireDate: '2023-01-05'
+    hireDate: '2023-01-05',
+    nationalId: '19880315-123456-78901',
+    specialization: 'Mathematics and Science',
+    languages: ['Swahili', 'English']
   },
   {
     id: '2',
@@ -254,7 +260,10 @@ export const teachers: Teacher[] = [
     qualifications: ['B.Sc in Biology', 'M.Ed in Education'],
     dateOfBirth: '1985-11-20',
     gender: 'female',
-    hireDate: '2023-01-10'
+    hireDate: '2023-01-10',
+    nationalId: '19851120-987654-32109',
+    specialization: 'Biology and Chemistry',
+    languages: ['Swahili', 'English', 'French']
   }
 ];
 
@@ -295,41 +304,47 @@ export const subjects: Subject[] = [
     name: 'Mathematics',
     code: 'MATH',
     description: 'Basic mathematics and numeracy skills',
-    applicableLevel: ['darasa1', 'darasa2', 'darasa3', 'darasa4', 'darasa5', 'darasa6', 'darasa7']
+    applicableLevel: ['darasa1', 'darasa2', 'darasa3', 'darasa4', 'darasa5', 'darasa6', 'darasa7'],
+    is_core_subject: true
   },
   {
     id: '2',
     name: 'Science',
     code: 'SCI',
     description: 'Basic science concepts and knowledge',
-    applicableLevel: ['darasa1', 'darasa2', 'darasa3', 'darasa4', 'darasa5', 'darasa6', 'darasa7']
+    applicableLevel: ['darasa1', 'darasa2', 'darasa3', 'darasa4', 'darasa5', 'darasa6', 'darasa7'],
+    is_core_subject: true
   },
   {
     id: '3',
     name: 'Biology',
     code: 'BIO',
     description: 'Study of living organisms and their interactions',
-    applicableLevel: ['form1', 'form2', 'form3', 'form4', 'form5', 'form6']
+    applicableLevel: ['form1', 'form2', 'form3', 'form4', 'form5', 'form6'],
+    is_core_subject: true
   },
   {
     id: '4',
     name: 'Chemistry',
     code: 'CHEM',
     description: 'Study of matter, its properties, and reactions',
-    applicableLevel: ['form1', 'form2', 'form3', 'form4', 'form5', 'form6']
+    applicableLevel: ['form1', 'form2', 'form3', 'form4', 'form5', 'form6'],
+    is_core_subject: true
   },
   {
     id: '5',
     name: 'Basic Numeracy',
     code: 'BNUM',
     description: 'Fundamental counting and number recognition',
-    applicableLevel: ['chekechea']
+    applicableLevel: ['chekechea'],
+    is_core_subject: true
   },
   {
     id: '6',
     name: 'Basic Literacy',
     code: 'BLIT',
     description: 'Introduction to letters, words, and reading',
-    applicableLevel: ['chekechea']
+    applicableLevel: ['chekechea'],
+    is_core_subject: true
   }
 ];
