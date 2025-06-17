@@ -40,7 +40,8 @@ const PhoneAuthModal: React.FC<PhoneAuthModalProps> = ({ isOpen, onClose, onSucc
 
       // Since we can't actually sign in with phone (Supabase requires email/password),
       // we'll redirect to regular login with a hint about the associated email
-      toast.info(`Please use email login for: ${phoneAuthData.profiles.email}`);
+      const profile = phoneAuthData.profiles as any;
+      toast.info(`Please use email login for: ${profile.email}`);
       onClose();
     } catch (error) {
       console.error('Phone auth error:', error);

@@ -84,11 +84,12 @@ const Teachers = () => {
         // Get subjects taught by this teacher
         const subjectRelations = teacherSubjects?.filter(ts => ts.teacher_id === teacher.id) || [];
         const subjects = subjectRelations.map(relation => {
-          const subject = relation.subjects as SubjectData;
-          if (Array.isArray(subject) && subject.length > 0) {
-            return subject[0]?.name || null;
-          } else if (subject && typeof subject === 'object' && 'name' in subject) {
-            return subject.name;
+          const subjectData = relation.subjects;
+          // Handle the case where subjects might be an array or a single object
+          if (Array.isArray(subjectData)) {
+            return subjectData.length > 0 ? subjectData[0].name : null;
+          } else if (subjectData && typeof subjectData === 'object' && 'name' in subjectData) {
+            return subjectData.name;
           }
           return null;
         }).filter(Boolean);
