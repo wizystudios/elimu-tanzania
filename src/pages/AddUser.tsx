@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -35,26 +34,30 @@ const AddUser = () => {
     role: '',
     teacherRole: '',
     classId: '',
-    password: ''
+    password: '',
+    nationalId: '',
+    dateOfBirth: '',
+    gender: 'male'
   });
 
   const userRoles = [
-    { value: 'admin', label: 'Admin 🛡️' },
-    { value: 'headmaster', label: 'Head Master 🎓' },
-    { value: 'vice_headmaster', label: 'Vice Head Master 📚' },
-    { value: 'academic_teacher', label: 'Academic Teacher 🏆' },
-    { value: 'teacher', label: 'Teacher 📖' },
-    { value: 'student', label: 'Student 🎒' },
-    { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
+    { value: 'admin', label: 'School Admin 🛡️', description: 'Manages school operations' },
+    { value: 'headmaster', label: 'Head Master 🎓', description: 'School principal/headmaster' },
+    { value: 'vice_headmaster', label: 'Vice Head Master 📚', description: 'Deputy headmaster' },
+    { value: 'academic_teacher', label: 'Academic Teacher 🏆', description: 'Subject head teacher' },
+    { value: 'teacher', label: 'Teacher 📖', description: 'Regular classroom teacher' },
+    { value: 'student', label: 'Student 🎒', description: 'School student' },
+    { value: 'parent', label: 'Parent/Guardian 👨‍👩‍👧‍👦', description: 'Student parent or guardian' },
   ];
 
   const teacherRoles = [
-    { value: 'normal_teacher', label: 'Normal Teacher 📖' },
-    { value: 'homeroom_teacher', label: 'Homeroom Teacher 🏠' },
-    { value: 'subject_teacher', label: 'Subject Teacher 📚' },
-    { value: 'headmaster', label: 'Head Master 🎓' },
-    { value: 'vice_headmaster', label: 'Vice Head Master 📚' },
-    { value: 'academic_teacher', label: 'Academic Teacher 🏆' },
+    { value: 'normal_teacher', label: 'Normal Teacher 📖', description: 'Regular classroom teacher' },
+    { value: 'homeroom_teacher', label: 'Homeroom Teacher 🏠', description: 'Class teacher' },
+    { value: 'subject_teacher', label: 'Subject Teacher 📚', description: 'Specialized subject teacher' },
+    { value: 'headmaster', label: 'Head Master 🎓', description: 'School headmaster' },
+    { value: 'vice_headmaster', label: 'Vice Head Master 📚', description: 'Deputy headmaster' },
+    { value: 'academic_teacher', label: 'Academic Teacher 🏆', description: 'Department head' },
+    { value: 'discipline_teacher', label: 'Discipline Teacher ⚖️', description: 'Handles student discipline' },
   ];
 
   useEffect(() => {
@@ -135,13 +138,40 @@ const AddUser = () => {
         schoolId: schoolId
       });
 
-      // Create user in Supabase Auth
+      // Generate staff/student ID based on role
+      const currentYear = new Date().getFullYear();
+      let idPrefix = '';
+      switch (formData.role) {
+        case 'teacher':
+        case 'headmaster':
+        case 'vice_headmaster':
+        case 'academic_teacher':
+          idPrefix = 'TCH';
+          break;
+        case 'student':
+          idPrefix = 'STU';
+          break;
+        case 'admin':
+          idPrefix = 'ADM';
+          break;
+        default:
+          idPrefix = 'USR';
+      }
+      const userId = `${idPrefix}/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // Create user in Supabase Auth with enhanced metadata
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
         user_metadata: {
           first_name: formData.firstName,
-          last_name: formData.lastName
+          last_name: formData.lastName,
+          phone: formData.phone,
+          national_id: formData.nationalId,
+          date_of_birth: formData.dateOfBirth,
+          gender: formData.gender,
+          user_id: userId,
+          role: formData.role
         }
       });
 
@@ -171,7 +201,7 @@ const AddUser = () => {
 
         console.log('Role created successfully, updating profile...');
 
-        // Update profile
+        // Update profile with Tanzania-specific information
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -185,7 +215,7 @@ const AddUser = () => {
           throw profileError;
         }
 
-        // If student, create student record
+        // If student, create student record with enhanced Tanzania-specific fields
         if (formData.role === 'student') {
           console.log('Creating student record...');
           
@@ -195,10 +225,15 @@ const AddUser = () => {
               user_id: authData.user.id,
               school_id: schoolId,
               current_class_id: formData.classId || null,
-              registration_number: `STU${Date.now()}`,
-              gender: 'other', // Default, can be updated later
-              date_of_birth: '2000-01-01', // Default, should be updated
-              enrollment_date: new Date().toISOString().split('T')[0]
+              registration_number: userId,
+              gender: formData.gender as 'male' | 'female' | 'other',
+              date_of_birth: formData.dateOfBirth || '2000-01-01',
+              enrollment_date: new Date().toISOString().split('T')[0],
+              birth_certificate_number: '', // To be updated later
+              home_address: '', // To be updated later
+              guardian_name: '', // To be updated later
+              guardian_phone: '', // To be updated later
+              guardian_relationship: 'parent' // Default
             });
 
           if (studentError) {
@@ -209,7 +244,7 @@ const AddUser = () => {
 
         toast({
           title: "Success! 🎉",
-          description: `${formData.firstName} ${formData.lastName} has been created successfully`
+          description: `${formData.firstName} ${formData.lastName} has been created successfully (ID: ${userId})`
         });
 
         navigate('/users');
@@ -243,14 +278,14 @@ const AddUser = () => {
               <span>👤</span>
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Create a new user account for your school system
+              Create a new user account for the Tanzanian school system (Mfumo wa Shule Tanzania)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name *</Label>
+                  <Label htmlFor="firstName">First Name (Jina la Kwanza) *</Label>
                   <Input
                     id="firstName"
                     value={formData.firstName}
@@ -260,7 +295,7 @@ const AddUser = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Label htmlFor="lastName">Last Name (Jina la Ukoo) *</Label>
                   <Input
                     id="lastName"
                     value={formData.lastName}
@@ -271,27 +306,66 @@ const AddUser = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  required
-                  className="text-sm sm:text-base"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    required
+                    className="text-sm sm:text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number (Nambari ya Simu)</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="+255 XXX XXX XXX"
+                    className="text-sm sm:text-base"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="+255 XXX XXX XXX"
-                  className="text-sm sm:text-base"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nationalId">National ID (Kitambulisho)</Label>
+                  <Input
+                    id="nationalId"
+                    value={formData.nationalId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nationalId: e.target.value }))}
+                    className="text-sm sm:text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Input
+                    id="dateOfBirth"
+                    type="date"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                    className="text-sm sm:text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender (Jinsia)</Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
+                  >
+                    <SelectTrigger className="text-sm sm:text-base">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="male">Male (Mwanaume)</SelectItem>
+                      <SelectItem value="female">Female (Mwanamke)</SelectItem>
+                      <SelectItem value="other">Other (Nyingine)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -307,7 +381,7 @@ const AddUser = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">Role *</Label>
+                <Label htmlFor="role">User Role (Jukumu) *</Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
@@ -318,7 +392,10 @@ const AddUser = () => {
                   <SelectContent className="bg-white">
                     {userRoles.map((role) => (
                       <SelectItem key={role.value} value={role.value}>
-                        {role.label}
+                        <div className="flex flex-col">
+                          <span>{role.label}</span>
+                          <span className="text-xs text-gray-500">{role.description}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -327,7 +404,7 @@ const AddUser = () => {
 
               {formData.role === 'teacher' && (
                 <div className="space-y-2">
-                  <Label htmlFor="teacherRole">Teacher Role</Label>
+                  <Label htmlFor="teacherRole">Teacher Specialization</Label>
                   <Select
                     value={formData.teacherRole}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, teacherRole: value }))}
@@ -338,7 +415,10 @@ const AddUser = () => {
                     <SelectContent className="bg-white">
                       {teacherRoles.map((role) => (
                         <SelectItem key={role.value} value={role.value}>
-                          {role.label}
+                          <div className="flex flex-col">
+                            <span>{role.label}</span>
+                            <span className="text-xs text-gray-500">{role.description}</span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -348,7 +428,7 @@ const AddUser = () => {
 
               {formData.role === 'student' && (
                 <div className="space-y-2">
-                  <Label htmlFor="classId">Class</Label>
+                  <Label htmlFor="classId">Class (Darasa)</Label>
                   {isLoadingClasses ? (
                     <div className="flex items-center space-x-2 text-sm text-gray-500">
                       <div className="animate-spin h-4 w-4 border-2 border-tanzanian-blue border-t-transparent rounded-full"></div>
@@ -382,7 +462,7 @@ const AddUser = () => {
                   )}
                   <p className="text-xs text-gray-500">
                     {classes.length === 0 ? 
-                      "No classes have been created yet. Student can be assigned to a class later." :
+                      "Hakuna madarasa - Student can be assigned to a class later." :
                       "Select a class for the student or leave empty to assign later."
                     }
                   </p>
