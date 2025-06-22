@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,15 +7,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Exam } from '@/types';
 
-// Importing components with named imports (fixed import syntax)
+// Importing components with named imports
 import { ExamsList } from '@/components/exams/ExamsList';
 import { ExamScheduleCalendar } from '@/components/exams/ExamScheduleCalendar';
 import CreateExamForm from '@/components/exams/CreateExamForm';
 
 const Exams = () => {
+  const [activeTab, setActiveTab] = useState('list');
+
   const { data: examsData, isLoading, refetch } = useQuery({
     queryKey: ['exams'],
     queryFn: async () => {
+      console.log('Fetching exams from database...');
+      
       // Fetch exams from Supabase
       const { data, error } = await supabase
         .from('exams')
@@ -35,7 +39,12 @@ const Exams = () => {
         `)
         .order('exam_date', { ascending: true });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching exams:', error);
+        throw error;
+      }
+      
+      console.log('Fetched exams data:', data);
       
       // Transform the data to match our Exam type
       return data?.map(exam => {
@@ -80,6 +89,10 @@ const Exams = () => {
     refetch();
   };
 
+  const handleCreateExam = () => {
+    setActiveTab('create');
+  };
+
   return (
     <MainLayout>
       <div>
@@ -88,12 +101,12 @@ const Exams = () => {
             <h1 className="text-2xl font-bold">Examinations</h1>
             <p className="text-gray-600">Manage and schedule examinations</p>
           </div>
-          <Button asChild>
-            <a href="#create-exam">Create New Exam</a>
+          <Button onClick={handleCreateExam}>
+            Create New Exam
           </Button>
         </div>
 
-        <Tabs defaultValue="list" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="list">List View</TabsTrigger>
             <TabsTrigger value="calendar">Calendar View</TabsTrigger>
@@ -105,10 +118,10 @@ const Exams = () => {
           </TabsContent>
           
           <TabsContent value="calendar" className="space-y-4">
-            <ExamScheduleCalendar exams={examsData || []} />
+            <ExamScheduleCalendar exams={examsData || []} isLoading={isLoading} />
           </TabsContent>
           
-          <TabsContent value="create" className="space-y-4" id="create-exam">
+          <TabsContent value="create" className="space-y-4">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h2 className="text-xl font-semibold mb-4">Create New Examination</h2>
               <CreateExamForm onExamCreated={handleExamCreated} />

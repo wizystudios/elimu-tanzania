@@ -10,17 +10,25 @@ import { Exam } from '@/types';
 
 export interface ExamScheduleCalendarProps {
   exams: Exam[];
-  isLoading?: boolean; // Added isLoading prop as optional
+  isLoading?: boolean;
 }
 
 export const ExamScheduleCalendar: React.FC<ExamScheduleCalendarProps> = ({ exams, isLoading = false }) => {
-  // If loading, show a loading state
-  if (isLoading) {
-    return <div className="h-96 flex items-center justify-center">Loading exam schedule...</div>;
-  }
-
   const [currentDate, setCurrentDate] = useState(new Date());
   
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="h-96 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-tanzanian-blue"></div>
+            <span className="ml-2">Loading exam schedule...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const startDate = startOfMonth(currentDate);
   const endDate = endOfMonth(currentDate);
   const days = eachDayOfInterval({ start: startDate, end: endDate });
@@ -100,16 +108,13 @@ export const ExamScheduleCalendar: React.FC<ExamScheduleCalendarProps> = ({ exam
                     <TooltipProvider key={exam.id}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <a
-                            href={`/exams/${exam.id}`}
-                            className="block text-xs p-1 rounded bg-white border truncate hover:bg-tanzanian-blue/5"
-                          >
+                          <div className="block text-xs p-1 rounded bg-white border truncate hover:bg-tanzanian-blue/5 cursor-pointer">
                             <div className="font-medium truncate">{exam.title}</div>
                             <div className="flex items-center text-gray-500 mt-0.5">
                               <Clock className="h-3 w-3 mr-1" />
                               {format(new Date(exam.date), 'HH:mm')}
                             </div>
-                          </a>
+                          </div>
                         </TooltipTrigger>
                         <TooltipContent>
                           <div>

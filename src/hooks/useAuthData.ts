@@ -21,32 +21,72 @@ interface UserDetails {
   is_active: boolean;
 }
 
+interface SchoolDetails {
+  id: string;
+  name: string;
+  registration_number: string;
+  email: string;
+  phone: string;
+  type: string;
+  subdomain: string;
+  logo?: string;
+  description?: string;
+  established_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export const useAuthData = () => {
   const { user } = useAuth();
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
+  const [schoolDetails, setSchoolDetails] = useState<SchoolDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserDetails = async () => {
       if (!user) {
         setUserDetails(null);
+        setSchoolDetails(null);
         setIsLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase
+        console.log('Fetching user details for:', user.id);
+        
+        // Fetch user details from the view
+        const { data: userData, error: userError } = await supabase
           .from('user_details')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (error) {
-          console.error('Error fetching user details:', error);
+        if (userError) {
+          console.error('Error fetching user details:', userError);
+          setIsLoading(false);
           return;
         }
 
-        setUserDetails(data);
+        console.log('User data fetched:', userData);
+        setUserDetails(userData);
+
+        // If user has a school_id, fetch school details
+        if (userData?.school_id) {
+          console.log('Fetching school details for school_id:', userData.school_id);
+          
+          const { data: schoolData, error: schoolError } = await supabase
+            .from('schools')
+            .select('*')
+            .eq('id', userData.school_id)
+            .single();
+
+          if (schoolError) {
+            console.error('Error fetching school details:', schoolError);
+          } else {
+            console.log('School data fetched:', schoolData);
+            setSchoolDetails(schoolData);
+          }
+        }
       } catch (error) {
         console.error('Error in fetchUserDetails:', error);
       } finally {
@@ -57,5 +97,5 @@ export const useAuthData = () => {
     fetchUserDetails();
   }, [user]);
 
-  return { userDetails, isLoading };
+  return { userDetails, schoolDetails, isLoading };
 };
