@@ -32,6 +32,26 @@ interface AnnouncementData {
   } | null;
 }
 
+// Define the type for the raw Supabase response
+interface SupabaseAnnouncementResponse {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  is_important: boolean;
+  recipient_type: string;
+  sender_id: string;
+  class_id: string | null;
+  profiles: {
+    first_name: string;
+    last_name: string;
+    profile_image: string | null;
+  }[] | null;
+  classes: {
+    name: string;
+  }[] | null;
+}
+
 const AnnouncementDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -68,7 +88,17 @@ const AnnouncementDetails = () => {
         .single();
         
       if (error) throw error;
-      return data as AnnouncementData;
+      
+      // Convert the Supabase response to our expected format
+      const rawData = data as SupabaseAnnouncementResponse;
+      
+      const transformedData: AnnouncementData = {
+        ...rawData,
+        profiles: rawData.profiles && rawData.profiles.length > 0 ? rawData.profiles[0] : null,
+        classes: rawData.classes && rawData.classes.length > 0 ? rawData.classes[0] : null,
+      };
+      
+      return transformedData;
     },
     enabled: !!id && !!schoolId
   });
