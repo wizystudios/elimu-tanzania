@@ -155,10 +155,38 @@ const Sidebar = () => {
       { name: 'Messages', path: '/messages', icon: <MessageSquare className="h-5 w-5" /> },
     ];
 
-    // Headmaster specific additional items
+    // Headmaster specific additional items (includes teacher items + management)
     const headmasterItems: NavItem[] = [
-      { name: 'Teacher Management', path: '/teacher-management', icon: <UserCog className="h-5 w-5" /> },
-      { name: 'School Policies', path: '/policies', icon: <ShieldCheck className="h-5 w-5" /> },
+      { 
+        name: 'Teachers', 
+        path: '/teachers', 
+        icon: <GraduationCap className="h-5 w-5" />,
+        children: [
+          { name: 'All Teachers', path: '/teachers' },
+          { name: 'Add Teacher', path: '/teachers/add' },
+          { name: 'Assign Subjects', path: '/teachers/assign' }
+        ]
+      },
+      { 
+        name: 'Students', 
+        path: '/students', 
+        icon: <Users className="h-5 w-5" />,
+        children: [
+          { name: 'All Students', path: '/students' },
+          { name: 'Add Student', path: '/students/add' },
+          { name: 'Attendance', path: '/students/attendance' }
+        ]
+      },
+      { 
+        name: 'Classes', 
+        path: '/classes', 
+        icon: <Book className="h-5 w-5" />,
+        children: [
+          { name: 'All Classes', path: '/classes' },
+          { name: 'Create Class', path: '/classes/create' }
+        ]
+      },
+      { name: 'Users', path: '/users', icon: <UserCog className="h-5 w-5" /> },
     ];
 
     // Academic teacher specific items
@@ -195,6 +223,7 @@ const Sidebar = () => {
       case 'teacher':
         return [...commonItems, ...teacherItems];
       case 'headmaster':
+        return [...commonItems, ...teacherItems, ...headmasterItems];
       case 'vice_headmaster':
         return [...commonItems, ...teacherItems, ...headmasterItems];
       case 'academic_teacher':

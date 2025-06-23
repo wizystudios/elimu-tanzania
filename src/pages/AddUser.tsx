@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -168,27 +169,55 @@ const AddUser = () => {
       }
       const userId = `${idPrefix}/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // Create user in Supabase Auth with enhanced metadata
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Store current session to restore later
+      const { data: currentSession } = await supabase.auth.getSession();
+
+      // Create user in Supabase Auth using admin API (this won't auto-login)
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            national_id: formData.nationalId,
-            date_of_birth: formData.dateOfBirth,
-            gender: formData.gender,
-            user_id: userId,
-            role: formData.role
-          }
+        email_confirm: true,
+        user_metadata: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          national_id: formData.nationalId,
+          date_of_birth: formData.dateOfBirth,
+          gender: formData.gender,
+          user_id: userId,
+          role: formData.role
         }
       });
 
       if (authError) {
-        console.error('Auth error:', authError);
-        throw authError;
+        // If admin API fails, fall back to regular signup but handle session properly
+        console.log('Admin API failed, using regular signup:', authError);
+        
+        const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              phone: formData.phone,
+              national_id: formData.nationalId,
+              date_of_birth: formData.dateOfBirth,
+              gender: formData.gender,
+              user_id: userId,
+              role: formData.role
+            }
+          }
+        });
+
+        if (fallbackError) throw fallbackError;
+        
+        // Immediately restore the original session
+        if (currentSession?.session) {
+          await supabase.auth.setSession(currentSession.session);
+        }
+        
+        authData.user = fallbackData.user;
       }
 
       if (authData.user) {

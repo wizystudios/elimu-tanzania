@@ -109,6 +109,11 @@ const AppWithProviders = () => (
             <StudentAttendance />
           </ProtectedRoute>
         } />
+        <Route path="/attendance" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
+            <StudentAttendance />
+          </ProtectedRoute>
+        } />
         <Route path="/teachers" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
             <Teachers />
@@ -119,9 +124,29 @@ const AppWithProviders = () => (
             <AddTeacher />
           </ProtectedRoute>
         } />
+        <Route path="/teachers/:id" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">Teacher Profile</h1><p>This feature is coming soon.</p></div>
+          </ProtectedRoute>
+        } />
+        <Route path="/teachers/:id/edit" element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">Edit Teacher</h1><p>This feature is coming soon.</p></div>
+          </ProtectedRoute>
+        } />
         <Route path="/teachers/assign" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
             <AssignTeachers />
+          </ProtectedRoute>
+        } />
+        <Route path="/my-classes" element={
+          <ProtectedRoute allowedRoles={['teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">My Classes</h1><p>This feature is coming soon.</p></div>
+          </ProtectedRoute>
+        } />
+        <Route path="/assignments" element={
+          <ProtectedRoute allowedRoles={['teacher', 'student', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
+            <div className="p-6"><h1 className="text-2xl font-bold mb-4">Assignments</h1><p>This feature is coming soon.</p></div>
           </ProtectedRoute>
         } />
         <Route path="/parents" element={

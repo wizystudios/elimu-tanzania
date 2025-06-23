@@ -31,28 +31,63 @@ const AddTeacher = () => {
       // Generate a temporary password - in production, this should be sent via email
       const temporaryPassword = `Temp${Math.floor(1000 + Math.random() * 9000)}!`;
 
-      // 1. Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Store current session to restore later
+      const { data: currentSession } = await supabase.auth.getSession();
+
+      // 1. Create user in Supabase Auth using admin API (this won't auto-login)
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
         password: temporaryPassword,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            national_id: formData.nationalId,
-            teaching_license: formData.teachingLicense,
-            gender: formData.gender,
-            date_of_birth: formData.dateOfBirth,
-            qualifications: formData.qualifications,
-            subjects: formData.subjects,
-            preferred_levels: formData.preferredLevels,
-            experience: formData.experience,
-            languages: formData.languages,
-          }
+        email_confirm: true, // Skip email confirmation
+        user_metadata: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          national_id: formData.nationalId,
+          teaching_license: formData.teachingLicense,
+          gender: formData.gender,
+          date_of_birth: formData.dateOfBirth,
+          qualifications: formData.qualifications,
+          subjects: formData.subjects,
+          preferred_levels: formData.preferredLevels,
+          experience: formData.experience,
+          languages: formData.languages,
         }
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        // If admin API fails, fall back to regular signup but handle session properly
+        console.log('Admin API failed, using regular signup:', authError);
+        
+        const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: temporaryPassword,
+          options: {
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              national_id: formData.nationalId,
+              teaching_license: formData.teachingLicense,
+              gender: formData.gender,
+              date_of_birth: formData.dateOfBirth,
+              qualifications: formData.qualifications,
+              subjects: formData.subjects,
+              preferred_levels: formData.preferredLevels,
+              experience: formData.experience,
+              languages: formData.languages,
+            }
+          }
+        });
+
+        if (fallbackError) throw fallbackError;
+        
+        // Immediately restore the original session
+        if (currentSession?.session) {
+          await supabase.auth.setSession(currentSession.session);
+        }
+        
+        authData.user = fallbackData.user;
+      }
+
       if (!authData.user) throw new Error('Failed to create user');
 
       // 2. Set user role in user_roles table
