@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/integrations/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AddParent = () => {
   const navigate = useNavigate();
