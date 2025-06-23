@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Index";
 import Schools from "./pages/Schools";
+import SchoolDetails from "./pages/SchoolDetails";
 import RegisterSchool from "./pages/RegisterSchool";
 import Students from "./pages/Students";
 import AddStudent from "./pages/AddStudent"; 
@@ -73,7 +74,7 @@ const AppWithProviders = () => (
         } />
         <Route path="/schools/:id" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
-            <div className="p-6"><h1 className="text-2xl font-bold mb-4">School Details</h1><p>This feature is coming soon.</p></div>
+            <SchoolDetails />
           </ProtectedRoute>
         } />
         <Route path="/schools/:id/edit" element={

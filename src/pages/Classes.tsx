@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -13,20 +12,10 @@ const Classes = () => {
   
   // Get all education levels for filter options
   const educationLevels = [
-    { value: 'chekechea', label: 'Kindergarten' },
-    { value: 'darasa1', label: 'Standard 1' },
-    { value: 'darasa2', label: 'Standard 2' },
-    { value: 'darasa3', label: 'Standard 3' },
-    { value: 'darasa4', label: 'Standard 4' },
-    { value: 'darasa5', label: 'Standard 5' },
-    { value: 'darasa6', label: 'Standard 6' },
-    { value: 'darasa7', label: 'Standard 7' },
-    { value: 'form1', label: 'Form 1' },
-    { value: 'form2', label: 'Form 2' },
-    { value: 'form3', label: 'Form 3' },
-    { value: 'form4', label: 'Form 4' },
-    { value: 'form5', label: 'Form 5' },
-    { value: 'form6', label: 'Form 6' },
+    { value: 'kindergarten', label: 'Kindergarten' },
+    { value: 'primary', label: 'Primary School' },
+    { value: 'secondary', label: 'Secondary School' },
+    { value: 'advanced', label: 'Advanced Level' },
   ];
   
   // Academic years for filtering
@@ -55,7 +44,7 @@ const Classes = () => {
       }
       
       if (selectedYear) {
-        query = query.eq('academic_year', selectedYear);
+        query = query.like('academic_year', `${selectedYear}%`);
       }
       
       const { data, error } = await query;
@@ -65,25 +54,11 @@ const Classes = () => {
       // For each class, fetch the teacher's name separately
       const classesWithTeachers = await Promise.all((data || []).map(async (classItem: any) => {
         if (classItem.homeroom_teacher_id) {
-          // First get the user_id from the teachers table
-          const { data: teacherData, error: teacherError } = await supabase
-            .from('user_roles')
-            .select('user_id')
-            .eq('id', classItem.homeroom_teacher_id)
-            .single();
-          
-          if (teacherError || !teacherData) {
-            return {
-              ...classItem,
-              teacherName: 'Unknown Teacher'
-            };
-          }
-          
-          // Then get the profile info for this user
+          // Get the profile info for this teacher
           const { data: teacherProfile, error: profileError } = await supabase
             .from('profiles')
             .select('first_name, last_name')
-            .eq('id', teacherData.user_id)
+            .eq('id', classItem.homeroom_teacher_id)
             .single();
           
           if (profileError || !teacherProfile) {

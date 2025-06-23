@@ -11,12 +11,17 @@ import { Link } from 'react-router-dom';
 
 const AddTeacher = () => {
   const navigate = useNavigate();
-  const { schoolId } = useAuth();
+  const { user, schoolId } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (formData: any) => {
     if (!schoolId) {
       toast.error("School ID not found. Cannot add teacher.");
+      return;
+    }
+
+    if (!user) {
+      toast.error("User not authenticated.");
       return;
     }
 
@@ -27,21 +32,23 @@ const AddTeacher = () => {
       const temporaryPassword = `Temp${Math.floor(1000 + Math.random() * 9000)}!`;
 
       // 1. Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: temporaryPassword,
-        user_metadata: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          national_id: formData.nationalId,
-          teaching_license: formData.teachingLicense,
-          gender: formData.gender,
-          date_of_birth: formData.dateOfBirth,
-          qualifications: formData.qualifications,
-          subjects: formData.subjects,
-          preferred_levels: formData.preferredLevels,
-          experience: formData.experience,
-          languages: formData.languages,
+        options: {
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            national_id: formData.nationalId,
+            teaching_license: formData.teachingLicense,
+            gender: formData.gender,
+            date_of_birth: formData.dateOfBirth,
+            qualifications: formData.qualifications,
+            subjects: formData.subjects,
+            preferred_levels: formData.preferredLevels,
+            experience: formData.experience,
+            languages: formData.languages,
+          }
         }
       });
 
@@ -56,7 +63,8 @@ const AddTeacher = () => {
           role: 'teacher',
           teacher_role: formData.specialization,
           school_id: schoolId,
-          is_active: true
+          is_active: true,
+          created_by: user.id
         });
 
       if (roleError) throw roleError;
@@ -69,6 +77,9 @@ const AddTeacher = () => {
           last_name: formData.lastName,
           phone: formData.phone,
           school_id: schoolId,
+          national_id: formData.nationalId,
+          date_of_birth: formData.dateOfBirth,
+          gender: formData.gender
         })
         .eq('id', authData.user.id);
 

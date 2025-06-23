@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -8,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/integrations/auth';
 
 const AddParent = () => {
   const navigate = useNavigate();
+  const { user, schoolId } = useAuth();
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -79,6 +80,24 @@ const AddParent = () => {
     if (!validateForm()) {
       return;
     }
+
+    if (!schoolId) {
+      toast({
+        title: "Error",
+        description: "School information is missing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -106,7 +125,7 @@ const AddParent = () => {
         .from('profiles')
         .update({
           phone: formData.phone,
-          // In a real app, you might add occupation and address to profiles table
+          school_id: schoolId
         })
         .eq('id', authData.user.id);
       
@@ -118,8 +137,9 @@ const AddParent = () => {
         .insert([{
           user_id: authData.user.id,
           role: 'parent',
-          // TODO: In production, get school_id from auth context
-          school_id: '1'
+          school_id: schoolId,
+          is_active: true,
+          created_by: user.id
         }]);
       
       if (roleError) throw roleError;

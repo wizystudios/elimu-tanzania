@@ -21,7 +21,7 @@ interface Class {
 const AddUser = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { schoolId } = useAuth();
+  const { user, schoolId } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingClasses, setIsLoadingClasses] = useState(false);
@@ -119,6 +119,15 @@ const AddUser = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Error", 
+        description: "User not authenticated",
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Validate required fields
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.role) {
       toast({
@@ -160,18 +169,20 @@ const AddUser = () => {
       const userId = `${idPrefix}/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
 
       // Create user in Supabase Auth with enhanced metadata
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        user_metadata: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          national_id: formData.nationalId,
-          date_of_birth: formData.dateOfBirth,
-          gender: formData.gender,
-          user_id: userId,
-          role: formData.role
+        options: {
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone: formData.phone,
+            national_id: formData.nationalId,
+            date_of_birth: formData.dateOfBirth,
+            gender: formData.gender,
+            user_id: userId,
+            role: formData.role
+          }
         }
       });
 
@@ -191,7 +202,8 @@ const AddUser = () => {
             school_id: schoolId,
             role: formData.role,
             teacher_role: formData.role === 'teacher' ? formData.teacherRole : null,
-            is_active: true
+            is_active: true,
+            created_by: user.id
           });
 
         if (roleError) {
@@ -206,7 +218,10 @@ const AddUser = () => {
           .from('profiles')
           .update({
             phone: formData.phone,
-            school_id: schoolId
+            school_id: schoolId,
+            national_id: formData.nationalId,
+            date_of_birth: formData.dateOfBirth ? formData.dateOfBirth : null,
+            gender: formData.gender
           })
           .eq('id', authData.user.id);
 
@@ -228,12 +243,7 @@ const AddUser = () => {
               registration_number: userId,
               gender: formData.gender as 'male' | 'female' | 'other',
               date_of_birth: formData.dateOfBirth || '2000-01-01',
-              enrollment_date: new Date().toISOString().split('T')[0],
-              birth_certificate_number: '', // To be updated later
-              home_address: '', // To be updated later
-              guardian_name: '', // To be updated later
-              guardian_phone: '', // To be updated later
-              guardian_relationship: 'parent' // Default
+              enrollment_date: new Date().toISOString().split('T')[0]
             });
 
           if (studentError) {
