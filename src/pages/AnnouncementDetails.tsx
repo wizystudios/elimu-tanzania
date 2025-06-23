@@ -12,6 +12,26 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Spinner } from '@/components/ui/spinner';
 
+// Define the type for the announcement data structure
+interface AnnouncementData {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
+  is_important: boolean;
+  recipient_type: string;
+  sender_id: string;
+  class_id: string | null;
+  profiles: {
+    first_name: string;
+    last_name: string;
+    profile_image: string | null;
+  } | null;
+  classes: {
+    name: string;
+  } | null;
+}
+
 const AnnouncementDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -20,7 +40,7 @@ const AnnouncementDetails = () => {
   // Fetch announcement details
   const { data: announcement, isLoading } = useQuery({
     queryKey: ['announcement', id],
-    queryFn: async () => {
+    queryFn: async (): Promise<AnnouncementData | null> => {
       if (!id || !schoolId) return null;
       
       const { data, error } = await supabase
@@ -34,12 +54,12 @@ const AnnouncementDetails = () => {
           recipient_type,
           sender_id,
           class_id,
-          profiles:sender_id (
+          profiles!sender_id (
             first_name,
             last_name,
             profile_image
           ),
-          classes:class_id (
+          classes!class_id (
             name
           )
         `)
@@ -48,7 +68,7 @@ const AnnouncementDetails = () => {
         .single();
         
       if (error) throw error;
-      return data;
+      return data as AnnouncementData;
     },
     enabled: !!id && !!schoolId
   });
