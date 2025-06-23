@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -7,6 +6,7 @@ import { User, Search, Plus, Filter, UserPlus, Settings, ChevronLeft, ChevronRig
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserCounts } from '@/hooks/useUserCounts';
 
 interface UserData {
   id: string;
@@ -24,6 +24,7 @@ interface UserData {
 
 const Users = () => {
   const { schoolId } = useAuth();
+  const { counts } = useUserCounts();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [users, setUsers] = useState<UserData[]>([]);
@@ -31,7 +32,6 @@ const Users = () => {
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const itemsPerPage = 10;
   
-  // Get all available roles for filter options
   const userRoles = [
     { value: 'all', label: 'All Roles' },
     { value: 'super_admin', label: 'Super Admin 👑' },
@@ -44,7 +44,6 @@ const Users = () => {
     { value: 'parent', label: 'Parent 👨‍👩‍👧‍👦' },
   ];
 
-  // Use the new user_details view for fetching user data
   const { data: usersData, isLoading, refetch } = useQuery({
     queryKey: ['users', selectedRole, schoolId],
     queryFn: async () => {
@@ -54,7 +53,6 @@ const Users = () => {
         .from('user_details')
         .select('*');
       
-      // Filter by school if not super_admin viewing all
       if (schoolId && selectedRole !== 'super_admin') {
         query = query.eq('school_id', schoolId);
       }
@@ -75,14 +73,12 @@ const Users = () => {
     }
   });
   
-  // Update local state when data changes
   useEffect(() => {
     if (usersData) {
       setUsers(usersData);
     }
   }, [usersData]);
 
-  // Filter users based on search query
   const filteredUsers = users.filter((user) => {
     const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
     return fullName.includes(searchQuery.toLowerCase()) || 
@@ -90,19 +86,16 @@ const Users = () => {
            (user.phone && user.phone.toLowerCase().includes(searchQuery.toLowerCase()));
   });
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentUsers = filteredUsers.slice(startIndex, endIndex);
 
-  // Function to get role display label with emoji
   const getRoleLabel = (role: string): string => {
     const roleOption = userRoles.find(r => r.value === role);
     return roleOption ? roleOption.label : role.replace('_', ' ');
   };
 
-  // Function to toggle user status
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -112,7 +105,6 @@ const Users = () => {
       
       if (error) throw error;
       
-      // Update local state
       setUsers(users.map(user => 
         user.id === userId 
           ? { ...user, is_active: !currentStatus }
@@ -123,7 +115,6 @@ const Users = () => {
     }
   };
 
-  // Bulk actions
   const handleSelectAll = () => {
     if (selectedUsers.length === currentUsers.length) {
       setSelectedUsers([]);
@@ -174,7 +165,7 @@ const Users = () => {
           </div>
         </div>
 
-        {/* Filters - Mobile Responsive */}
+        {/* Filters */}
         <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm mb-4 sm:mb-6">
           <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4">
             <div className="relative flex-1">
@@ -203,7 +194,7 @@ const Users = () => {
           </div>
         </div>
 
-        {/* Users Display - Mobile Responsive */}
+        {/* Users Display */}
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-t-2 border-b-2 border-tanzanian-blue"></div>
@@ -396,7 +387,7 @@ const Users = () => {
               </table>
             </div>
 
-            {/* Pagination - Mobile Responsive */}
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200">
                 <div className="flex-1 flex justify-between sm:hidden">
@@ -458,11 +449,11 @@ const Users = () => {
           <div className="bg-white rounded-lg shadow-sm p-6 sm:p-10 text-center">
             <div className="flex flex-col items-center justify-center">
               <User className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mb-4" />
-              <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">No Users Found 😔</h3>
+              <h3 className="text-lg sm:text-xl font-medium text-gray-700 mb-2">No Users Found</h3>
               <p className="text-sm sm:text-base text-gray-500 mb-6 max-w-md">
                 {searchQuery || selectedRole !== 'all'
-                  ? "No users match your search criteria. Try adjusting your filters."
-                  : "There are no users in the system yet. Start by adding your first user."}
+                  ? "No users match your search criteria."
+                  : "No users in the system yet."}
               </p>
               <Link 
                 to="/users/add" 
@@ -475,10 +466,10 @@ const Users = () => {
           </div>
         )}
 
-        {/* Users Statistics - Mobile Responsive */}
+        {/* Users Statistics */}
         <div className="mt-6 sm:mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {userRoles.filter(role => role.value !== 'all').map(role => {
-            const count = users.filter(user => user.role === role.value).length;
+            const count = counts[role.value as keyof typeof counts] || 0;
             return (
               <div key={role.value} className="bg-white p-3 sm:p-4 rounded-lg shadow-sm">
                 <div className="text-xs sm:text-sm font-medium text-gray-500 truncate">{role.label}s</div>

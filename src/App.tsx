@@ -42,6 +42,8 @@ import Calendar from "./pages/Calendar";
 import AddEvent from "./pages/AddEvent";
 import RealTimeChat from "./pages/RealTimeChat";
 import Profile from "./pages/Profile";
+import MyChildren from "./pages/MyChildren";
+import AcademicProgress from "./pages/AcademicProgress";
 
 const queryClient = new QueryClient();
 
@@ -54,7 +56,6 @@ const AppWithProviders = () => (
         <Route path="/register" element={<Register />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         
-        {/* Redirect from root to dashboard when authenticated */}
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
@@ -110,7 +111,7 @@ const AppWithProviders = () => (
           </ProtectedRoute>
         } />
         <Route path="/attendance" element={
-          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster']}>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'teacher', 'headmaster', 'vice_headmaster', 'parent']}>
             <StudentAttendance />
           </ProtectedRoute>
         } />
@@ -162,6 +163,18 @@ const AppWithProviders = () => (
         <Route path="/parents/link" element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster', 'vice_headmaster']}>
             <LinkParents />
+          </ProtectedRoute>
+        } />
+        
+        {/* Parent and Student specific routes */}
+        <Route path="/my-children" element={
+          <ProtectedRoute allowedRoles={['parent']}>
+            <MyChildren />
+          </ProtectedRoute>
+        } />
+        <Route path="/academic-progress" element={
+          <ProtectedRoute allowedRoles={['parent', 'student']}>
+            <AcademicProgress />
           </ProtectedRoute>
         } />
         
@@ -236,7 +249,7 @@ const AppWithProviders = () => (
           </ProtectedRoute>
         } />
         <Route path="/settings" element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'headmaster']}>
             <Settings />
           </ProtectedRoute>
         } />

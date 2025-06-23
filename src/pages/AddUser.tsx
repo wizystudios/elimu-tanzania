@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft } from 'lucide-react';
@@ -21,7 +21,6 @@ interface Class {
 
 const AddUser = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, schoolId } = useAuth();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -90,19 +89,11 @@ const AddUser = () => {
       setClasses(data || []);
       
       if (!data || data.length === 0) {
-        toast({
-          title: "No Classes Found",
-          description: "No classes have been created yet. Students will need to be assigned to classes later.",
-          variant: "default"
-        });
+        toast.info("No classes available - create classes first");
       }
     } catch (error) {
       console.error('Error fetching classes:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load classes. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Failed to load classes");
     } finally {
       setIsLoadingClasses(false);
     }
@@ -112,30 +103,17 @@ const AddUser = () => {
     e.preventDefault();
     
     if (!schoolId) {
-      toast({
-        title: "Error",
-        description: "School information is missing",
-        variant: "destructive"
-      });
+      toast.error("School information missing");
       return;
     }
 
     if (!user) {
-      toast({
-        title: "Error", 
-        description: "User not authenticated",
-        variant: "destructive"
-      });
+      toast.error("User not authenticated");
       return;
     }
 
-    // Validate required fields
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.role) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
+      toast.error("Please fill required fields");
       return;
     }
 
@@ -148,7 +126,6 @@ const AddUser = () => {
         schoolId: schoolId
       });
 
-      // Generate staff/student ID based on role
       const currentYear = new Date().getFullYear();
       let idPrefix = '';
       switch (formData.role) {
@@ -169,10 +146,10 @@ const AddUser = () => {
       }
       const userId = `${idPrefix}/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // Store current session to restore later
+      // Store current session
       const { data: currentSession } = await supabase.auth.getSession();
 
-      // Create user in Supabase Auth using admin API (this won't auto-login)
+      // Create user account
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
         password: formData.password,
@@ -190,7 +167,6 @@ const AddUser = () => {
       });
 
       if (authError) {
-        // If admin API fails, fall back to regular signup but handle session properly
         console.log('Admin API failed, using regular signup:', authError);
         
         const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
@@ -212,7 +188,7 @@ const AddUser = () => {
 
         if (fallbackError) throw fallbackError;
         
-        // Immediately restore the original session
+        // Restore original session immediately
         if (currentSession?.session) {
           await supabase.auth.setSession(currentSession.session);
         }
@@ -242,7 +218,7 @@ const AddUser = () => {
 
         console.log('Role created successfully, updating profile...');
 
-        // Update profile with Tanzania-specific information
+        // Update profile
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -259,7 +235,7 @@ const AddUser = () => {
           throw profileError;
         }
 
-        // If student, create student record with enhanced Tanzania-specific fields
+        // Create student record if role is student
         if (formData.role === 'student') {
           console.log('Creating student record...');
           
@@ -281,20 +257,12 @@ const AddUser = () => {
           }
         }
 
-        toast({
-          title: "Success! 🎉",
-          description: `${formData.firstName} ${formData.lastName} has been created successfully (ID: ${userId})`
-        });
-
+        toast.success("Success");
         navigate('/users');
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast({
-        title: "Error ❌",
-        description: error.message || "Failed to create user",
-        variant: "destructive"
-      });
+      toast.error("Failed");
     } finally {
       setIsLoading(false);
     }
@@ -317,14 +285,14 @@ const AddUser = () => {
               <span>👤</span>
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Create a new user account for the Tanzanian school system (Mfumo wa Shule Tanzania)
+              Create a new user account for the Tanzanian school system
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name (Jina la Kwanza) *</Label>
+                  <Label htmlFor="firstName">First Name *</Label>
                   <Input
                     id="firstName"
                     value={formData.firstName}
@@ -334,7 +302,7 @@ const AddUser = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name (Jina la Ukoo) *</Label>
+                  <Label htmlFor="lastName">Last Name *</Label>
                   <Input
                     id="lastName"
                     value={formData.lastName}
@@ -358,7 +326,7 @@ const AddUser = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number (Nambari ya Simu)</Label>
+                  <Label htmlFor="phone">Phone Number</Label>
                   <Input
                     id="phone"
                     value={formData.phone}
@@ -371,7 +339,7 @@ const AddUser = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nationalId">National ID (Kitambulisho)</Label>
+                  <Label htmlFor="nationalId">National ID</Label>
                   <Input
                     id="nationalId"
                     value={formData.nationalId}
@@ -390,7 +358,7 @@ const AddUser = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gender">Gender (Jinsia)</Label>
+                  <Label htmlFor="gender">Gender</Label>
                   <Select
                     value={formData.gender}
                     onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value }))}
@@ -399,9 +367,9 @@ const AddUser = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-white">
-                      <SelectItem value="male">Male (Mwanaume)</SelectItem>
-                      <SelectItem value="female">Female (Mwanamke)</SelectItem>
-                      <SelectItem value="other">Other (Nyingine)</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -420,7 +388,7 @@ const AddUser = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">User Role (Jukumu) *</Label>
+                <Label htmlFor="role">User Role *</Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
@@ -467,7 +435,7 @@ const AddUser = () => {
 
               {formData.role === 'student' && (
                 <div className="space-y-2">
-                  <Label htmlFor="classId">Class (Darasa)</Label>
+                  <Label htmlFor="classId">Class</Label>
                   {isLoadingClasses ? (
                     <div className="flex items-center space-x-2 text-sm text-gray-500">
                       <div className="animate-spin h-4 w-4 border-2 border-tanzanian-blue border-t-transparent rounded-full"></div>
@@ -493,18 +461,12 @@ const AddUser = () => {
                           </>
                         ) : (
                           <SelectItem value="other">
-                            No classes available - Create classes first
+                            No classes available
                           </SelectItem>
                         )}
                       </SelectContent>
                     </Select>
                   )}
-                  <p className="text-xs text-gray-500">
-                    {classes.length === 0 ? 
-                      "Hakuna madarasa - Student can be assigned to a class later." :
-                      "Select a class for the student or leave empty to assign later."
-                    }
-                  </p>
                 </div>
               )}
 
@@ -522,7 +484,7 @@ const AddUser = () => {
                   disabled={isLoading}
                   className="text-sm sm:text-base"
                 >
-                  {isLoading ? 'Creating... ⏳' : 'Create User 🎉'}
+                  {isLoading ? 'Creating...' : 'Create User'}
                 </Button>
               </div>
             </form>

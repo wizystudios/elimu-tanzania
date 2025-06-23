@@ -16,29 +16,28 @@ const AddTeacher = () => {
 
   const handleSubmit = async (formData: any) => {
     if (!schoolId) {
-      toast.error("School ID not found. Cannot add teacher.");
+      toast.error("School ID not found");
       return;
     }
 
     if (!user) {
-      toast.error("User not authenticated.");
+      toast.error("User not authenticated");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      // Generate a temporary password - in production, this should be sent via email
       const temporaryPassword = `Temp${Math.floor(1000 + Math.random() * 9000)}!`;
 
-      // Store current session to restore later
+      // Store current session
       const { data: currentSession } = await supabase.auth.getSession();
 
-      // 1. Create user in Supabase Auth using admin API (this won't auto-login)
+      // Create user
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
         password: temporaryPassword,
-        email_confirm: true, // Skip email confirmation
+        email_confirm: true,
         user_metadata: {
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -55,7 +54,6 @@ const AddTeacher = () => {
       });
 
       if (authError) {
-        // If admin API fails, fall back to regular signup but handle session properly
         console.log('Admin API failed, using regular signup:', authError);
         
         const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
@@ -80,7 +78,7 @@ const AddTeacher = () => {
 
         if (fallbackError) throw fallbackError;
         
-        // Immediately restore the original session
+        // Restore original session
         if (currentSession?.session) {
           await supabase.auth.setSession(currentSession.session);
         }
@@ -90,7 +88,7 @@ const AddTeacher = () => {
 
       if (!authData.user) throw new Error('Failed to create user');
 
-      // 2. Set user role in user_roles table
+      // Create user role
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
@@ -104,7 +102,7 @@ const AddTeacher = () => {
 
       if (roleError) throw roleError;
 
-      // 3. Update the profile table
+      // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -120,20 +118,18 @@ const AddTeacher = () => {
 
       if (profileError) throw profileError;
 
-      // Generate staff ID for Tanzania format: TCH/YYYY/XXXX
       const currentYear = new Date().getFullYear();
       const staffId = `TCH/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
 
-      toast.success(`Teacher registered successfully! 🎉`);
-      toast.info(`Temporary password: ${temporaryPassword}`, {
+      toast.success("Success");
+      toast.info(`Password: ${temporaryPassword}`, {
         duration: 10000,
-        description: "Please share this with the teacher and ask them to change it on first login."
       });
 
       navigate('/teachers');
     } catch (error: any) {
       console.error('Error adding teacher:', error);
-      toast.error('Failed to register teacher. Please try again.');
+      toast.error("Failed");
     } finally {
       setIsSubmitting(false);
     }
@@ -151,7 +147,7 @@ const AddTeacher = () => {
 
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Add New Teacher</h1>
-          <p className="text-gray-600">Register a new teaching staff member for the Tanzanian education system</p>
+          <p className="text-gray-600">Register a new teaching staff member</p>
         </div>
 
         <TeacherRegistrationForm onSubmit={handleSubmit} isLoading={isSubmitting} />
