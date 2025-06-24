@@ -118,18 +118,15 @@ const AddTeacher = () => {
 
       if (profileError) throw profileError;
 
-      const currentYear = new Date().getFullYear();
-      const staffId = `TCH/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
-
-      toast.success("Success");
-      toast.info(`Password: ${temporaryPassword}`, {
+      toast.success("Teacher registered successfully");
+      toast.info(`Login Password: ${temporaryPassword}`, {
         duration: 10000,
       });
 
       navigate('/teachers');
     } catch (error: any) {
       console.error('Error adding teacher:', error);
-      toast.error("Failed");
+      toast.error("Failed to register teacher");
     } finally {
       setIsSubmitting(false);
     }

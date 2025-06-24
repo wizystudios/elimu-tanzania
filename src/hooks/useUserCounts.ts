@@ -29,54 +29,54 @@ export const useUserCounts = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchUserCounts = async () => {
-      if (!schoolId) {
-        setIsLoading(false);
-        return;
+  const fetchUserCounts = async () => {
+    if (!schoolId) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from('user_details')
+        .select('role')
+        .eq('school_id', schoolId)
+        .eq('is_active', true);
+
+      if (fetchError) {
+        throw fetchError;
       }
 
-      try {
-        setIsLoading(true);
-        setError(null);
+      // Count users by role
+      const roleCounts: UserCounts = {
+        super_admin: 0,
+        admin: 0,
+        headmaster: 0,
+        vice_headmaster: 0,
+        academic_teacher: 0,
+        teacher: 0,
+        student: 0,
+        parent: 0,
+      };
 
-        const { data, error: fetchError } = await supabase
-          .from('user_details')
-          .select('role')
-          .eq('school_id', schoolId)
-          .eq('is_active', true);
-
-        if (fetchError) {
-          throw fetchError;
+      data?.forEach((user) => {
+        if (user.role && roleCounts.hasOwnProperty(user.role)) {
+          roleCounts[user.role as keyof UserCounts]++;
         }
+      });
 
-        // Count users by role
-        const roleCounts: UserCounts = {
-          super_admin: 0,
-          admin: 0,
-          headmaster: 0,
-          vice_headmaster: 0,
-          academic_teacher: 0,
-          teacher: 0,
-          student: 0,
-          parent: 0,
-        };
+      setCounts(roleCounts);
+    } catch (err: any) {
+      console.error('Error fetching user counts:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        data?.forEach((user) => {
-          if (user.role && roleCounts.hasOwnProperty(user.role)) {
-            roleCounts[user.role as keyof UserCounts]++;
-          }
-        });
-
-        setCounts(roleCounts);
-      } catch (err: any) {
-        console.error('Error fetching user counts:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
+  useEffect(() => {
     fetchUserCounts();
   }, [schoolId]);
 
@@ -84,9 +84,6 @@ export const useUserCounts = () => {
     counts,
     isLoading,
     error,
-    refetch: () => {
-      setIsLoading(true);
-      // Re-trigger the effect
-    }
+    refetch: fetchUserCounts
   };
 };
