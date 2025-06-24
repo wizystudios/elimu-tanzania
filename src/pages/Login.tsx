@@ -64,21 +64,19 @@ const Login = () => {
         .select('id, name')
         .ilike('name', `%${schoolName}%`)
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') {
-          toast.error("Shule haijapatikana, tafadhali jaribu tena au sajili shule yako");
-        } else {
-          toast.error("Hitilafu imetokea wakati wa kutafuta shule");
-          console.error("Error checking school:", error);
-        }
+        console.error("Error checking school:", error);
+        toast.error("Hitilafu imetokea wakati wa kutafuta shule");
         return;
       }
       
       if (data) {
         setIsSchoolFound(true);
         toast.success(`Shule imepatikana: ${data.name}`);
+      } else {
+        toast.error("Shule haijapatikana, tafadhali jaribu tena au sajili shule yako");
       }
     } catch (error) {
       console.error("Error checking school:", error);
@@ -92,6 +90,8 @@ const Login = () => {
     setIsLoading(true);
     
     try {
+      console.log("Attempting to sign in with email:", data.email);
+      
       // Sign in with Supabase
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
@@ -99,16 +99,19 @@ const Login = () => {
       });
       
       if (error) {
+        console.error("Auth error:", error);
         toast.error("Kushindwa kuingia: " + error.message);
         return;
       }
+      
+      console.log("Auth successful, user:", authData.user?.id);
       
       // Check if user has any role using the new user_details view
       const { data: userDetails, error: roleError } = await supabase
         .from('user_details')
         .select('role, teacher_role, school_id, school_name')
         .eq('id', authData.user.id)
-        .single();
+        .maybeSingle();
       
       if (roleError) {
         console.error("Error checking role:", roleError);
@@ -116,12 +119,14 @@ const Login = () => {
         return;
       }
       
-      if (!userDetails) {
+      if (!userDetails || !userDetails.role) {
         toast.error(`Huna jukumu katika mfumo.`);
         // Sign out since no role found
         await supabase.auth.signOut();
         return;
       }
+      
+      console.log("User details found:", userDetails);
       
       // Successful login
       toast.success("Umeingia kwa mafanikio!", {

@@ -41,47 +41,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   const fetchUserData = async (userId: string | undefined) => {
-    if (!userId) return;
+    if (!userId) {
+      console.log("No user ID provided");
+      return;
+    }
     
     try {
       console.log("Fetching user data for ID:", userId);
       
-      // Fetch user role
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_roles')
-        .select('role, school_id, teacher_role')
-        .eq('user_id', userId)
+      // Use the user_details view which should work without RLS issues
+      const { data: userDetails, error: detailsError } = await supabase
+        .from('user_details')
+        .select('role, teacher_role, school_id, school_name')
+        .eq('id', userId)
         .maybeSingle();
         
-      if (roleError) {
-        console.error("Error fetching user role:", roleError);
+      if (detailsError) {
+        console.error("Error fetching user details:", detailsError);
+        // Don't throw error, just log it and continue
         return;
       }
       
-      console.log("User role data:", roleData);
+      console.log("User details data:", userDetails);
       
-      setUserRole(roleData?.role || null);
-      setTeacherRole(roleData?.teacher_role || null);
-      
-      if (roleData?.school_id) {
-        setSchoolId(roleData.school_id);
-        
-        // Fetch school name
-        const { data: schoolData, error: schoolError } = await supabase
-          .from('schools')
-          .select('name')
-          .eq('id', roleData.school_id)
-          .maybeSingle();
-          
-        if (schoolError) {
-          console.error("Error fetching school data:", schoolError);
-        } else {
-          console.log("School data:", schoolData);
-          setSchoolName(schoolData?.name || null);
-        }
+      if (userDetails) {
+        setUserRole(userDetails.role || null);
+        setTeacherRole(userDetails.teacher_role || null);
+        setSchoolId(userDetails.school_id || null);
+        setSchoolName(userDetails.school_name || null);
+      } else {
+        console.log("No user details found");
+        setUserRole(null);
+        setTeacherRole(null);
+        setSchoolId(null);
+        setSchoolName(null);
       }
     } catch (error) {
       console.error("Error in fetchUserData:", error);
+      // Don't throw error, just log it
     }
   };
 
@@ -99,11 +96,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
-        if (event === 'SIGNED_IN') {
-          // Use setTimeout to avoid Supabase deadlock
+        if (event === 'SIGNED_IN' && newSession?.user) {
+          // Use setTimeout to avoid potential deadlock
           setTimeout(() => {
-            fetchUserData(newSession?.user?.id);
-          }, 0);
+            fetchUserData(newSession.user.id);
+          }, 100);
         } else if (event === 'SIGNED_OUT') {
           setUserRole(null);
           setTeacherRole(null);
@@ -137,7 +134,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const signOut = async () => {
     try {

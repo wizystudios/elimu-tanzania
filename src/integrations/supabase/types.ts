@@ -931,7 +931,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      get_user_role_safe: {
+        Args: { check_user_id: string; check_school_id: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
       teacher_role:

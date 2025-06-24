@@ -29,26 +29,33 @@ export const useUserRole = () => {
         setIsLoading(true);
         setError(null);
 
+        // Use the user_details view instead of direct user_roles table
         const { data, error: fetchError } = await supabase
-          .from('user_roles')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .single();
+          .from('user_details')
+          .select('role, teacher_role, school_id, is_active')
+          .eq('id', user.id)
+          .maybeSingle();
 
         if (fetchError) {
-          if (fetchError.code === 'PGRST116') {
-            // No rows returned
-            setUserRole(null);
-          } else {
-            throw fetchError;
-          }
+          console.error("Error fetching user role:", fetchError);
+          setError(fetchError.message);
+          setUserRole(null);
+        } else if (data) {
+          // Convert the user_details format to UserRole format
+          setUserRole({
+            id: user.id,
+            role: data.role,
+            teacher_role: data.teacher_role,
+            school_id: data.school_id,
+            is_active: data.is_active || false
+          });
         } else {
-          setUserRole(data);
+          setUserRole(null);
         }
       } catch (err: any) {
         console.error('Error fetching user role:', err);
         setError(err.message);
+        setUserRole(null);
       } finally {
         setIsLoading(false);
       }

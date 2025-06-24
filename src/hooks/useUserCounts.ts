@@ -31,6 +31,7 @@ export const useUserCounts = () => {
 
   const fetchUserCounts = async () => {
     if (!schoolId) {
+      console.log("No school ID, skipping user counts fetch");
       setIsLoading(false);
       return;
     }
@@ -39,6 +40,7 @@ export const useUserCounts = () => {
       setIsLoading(true);
       setError(null);
 
+      // Use the user_details view which should work without RLS issues
       const { data, error: fetchError } = await supabase
         .from('user_details')
         .select('role')
@@ -46,7 +48,9 @@ export const useUserCounts = () => {
         .eq('is_active', true);
 
       if (fetchError) {
-        throw fetchError;
+        console.error("Error fetching user counts:", fetchError);
+        setError(fetchError.message);
+        return;
       }
 
       // Count users by role
@@ -67,6 +71,7 @@ export const useUserCounts = () => {
         }
       });
 
+      console.log("User counts fetched:", roleCounts);
       setCounts(roleCounts);
     } catch (err: any) {
       console.error('Error fetching user counts:', err);
