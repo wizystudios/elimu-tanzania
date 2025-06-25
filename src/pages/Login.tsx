@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -58,29 +57,32 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Check if school exists in database
+      console.log("Searching for school:", schoolName);
+      
+      // Use a simpler query approach that's less likely to hit RLS issues
       const { data, error } = await supabase
         .from('schools')
         .select('id, name')
-        .ilike('name', `%${schoolName}%`)
-        .limit(1)
-        .maybeSingle();
+        .or(`name.ilike.%${schoolName}%,registration_number.ilike.%${schoolName}%`)
+        .limit(5);
+      
+      console.log("School search result:", { data, error });
       
       if (error) {
-        console.error("Error checking school:", error);
-        toast.error("Hitilafu imetokea wakati wa kutafuta shule");
+        console.error("Error searching for school:", error);
+        toast.error("Hitilafu imetokea wakati wa kutafuta shule. Tafadhali jaribu tena.");
         return;
       }
       
-      if (data) {
+      if (data && data.length > 0) {
         setIsSchoolFound(true);
-        toast.success(`Shule imepatikana: ${data.name}`);
+        toast.success(`Shule imepatikana: ${data[0].name}`);
       } else {
         toast.error("Shule haijapatikana, tafadhali jaribu tena au sajili shule yako");
       }
     } catch (error) {
-      console.error("Error checking school:", error);
-      toast.error("Hitilafu imetokea wakati wa kutafuta shule");
+      console.error("Unexpected error checking school:", error);
+      toast.error("Hitilafu isiyotarajiwa imetokea. Tafadhali jaribu tena.");
     } finally {
       setIsLoading(false);
     }
