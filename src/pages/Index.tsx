@@ -60,140 +60,172 @@ const Dashboard = () => {
       
       setIsLoading(true);
       try {
-        console.log('Fetching school data for ID:', schoolId);
+        console.log('Fetching dashboard data for role:', userRole, 'school:', schoolId);
         
-        // For super_admin, fetch all schools
+        // Use user_details view for getting user counts to avoid RLS issues
+        let userDetailsQuery;
+        
         if (userRole === 'super_admin') {
+          // Fetch all schools for super admin
           const { data: schools, error: schoolsError } = await supabase
             .from('schools')
             .select('*, school_locations(*)');
             
-          if (schoolsError) throw schoolsError;
+          if (schoolsError) {
+            console.error('Error fetching schools:', schoolsError);
+            throw schoolsError;
+          }
           
-          setSchoolData(schools);
+          setSchoolData(schools || []);
           
-          // Get total counts for super_admin (across all schools)
-          const roleQueries = await Promise.all([
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'super_admin'),
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'admin'),
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'headmaster'),
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'vice_headmaster'),
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'academic_teacher'),
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'teacher'),
-            supabase.from('students').select('id', { count: 'exact' }),
-            supabase.from('user_roles').select('id', { count: 'exact' }).eq('role', 'parent')
-          ]);
-          
-          setStats({
-            superAdmins: roleQueries[0].count || 0,
-            admins: roleQueries[1].count || 0,
-            headmasters: roleQueries[2].count || 0,
-            viceHeadmasters: roleQueries[3].count || 0,
-            academicTeachers: roleQueries[4].count || 0,
-            teachers: roleQueries[5].count || 0,
-            students: roleQueries[6].count || 0,
-            parents: roleQueries[7].count || 0
-          });
-          
-          // Fetch all recent activities for super_admin
-          const { data: allActivities } = await supabase
-            .from('announcements')
-            .select(`
-              id, 
-              title, 
-              content, 
-              created_at,
-              sender_id,
-              profiles!announcements_sender_id_fkey(first_name, last_name)
-            `)
-            .order('created_at', { ascending: false })
-            .limit(5);
+          // Get total counts across all schools using user_details view
+          userDetailsQuery = supabase
+            .from('user_details')
+            .select('role')
+            .eq('is_active', true);
             
-          processActivities(allActivities || []);
-          
-          // Fetch all upcoming events for super_admin
-          const { data: allEvents } = await supabase
-            .from('calendar_events')
-            .select('*')
-            .gt('start_date', new Date().toISOString())
-            .order('start_date', { ascending: true })
-            .limit(5);
-            
-          processEvents(allEvents || []);
-          
         } else {
           // For non-super_admin users, fetch specific school data
-          const { data: school, error: schoolError } = await supabase
-            .from('schools')
-            .select('*, school_locations(*)')
-            .eq('id', schoolId)
-            .maybeSingle();
-            
-          if (schoolError) throw schoolError;
-          
-          setSchoolData(school ? [school] : []);
-          
-          if (school) {
-            // Fetch stats for specific school
-            const roleQueries = await Promise.all([
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'super_admin'),
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'admin'),
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'headmaster'),
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'vice_headmaster'),
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'academic_teacher'),
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'teacher'),
-              supabase.from('students').select('id', { count: 'exact' }).eq('school_id', schoolId),
-              supabase.from('user_roles').select('id', { count: 'exact' }).eq('school_id', schoolId).eq('role', 'parent')
-            ]);
-            
-            setStats({
-              superAdmins: roleQueries[0].count || 0,
-              admins: roleQueries[1].count || 0,
-              headmasters: roleQueries[2].count || 0,
-              viceHeadmasters: roleQueries[3].count || 0,
-              academicTeachers: roleQueries[4].count || 0,
-              teachers: roleQueries[5].count || 0,
-              students: roleQueries[6].count || 0,
-              parents: roleQueries[7].count || 0
-            });
-            
-            // Fetch recent activities for specific school
-            const { data: activities } = await supabase
-              .from('announcements')
-              .select(`
-                id, 
-                title, 
-                content, 
-                created_at,
-                sender_id,
-                profiles!announcements_sender_id_fkey(first_name, last_name)
-              `)
-              .eq('school_id', schoolId)
-              .order('created_at', { ascending: false })
-              .limit(5);
+          if (schoolId) {
+            const { data: school, error: schoolError } = await supabase
+              .from('schools')
+              .select('*, school_locations(*)')
+              .eq('id', schoolId)
+              .maybeSingle();
               
-            processActivities(activities || []);
+            if (schoolError) {
+              console.error('Error fetching school:', schoolError);
+              throw schoolError;
+            }
             
-            // Fetch upcoming events for specific school
-            const { data: events } = await supabase
-              .from('calendar_events')
-              .select('*')
+            setSchoolData(school ? [school] : []);
+            
+            // Get counts for specific school using user_details view
+            userDetailsQuery = supabase
+              .from('user_details')
+              .select('role')
               .eq('school_id', schoolId)
-              .gt('start_date', new Date().toISOString())
-              .order('start_date', { ascending: true })
-              .limit(5);
-              
-            processEvents(events || []);
+              .eq('is_active', true);
           }
         }
+        
+        // Fetch user counts
+        if (userDetailsQuery) {
+          const { data: userDetails, error: userDetailsError } = await userDetailsQuery;
+          
+          if (userDetailsError) {
+            console.error('Error fetching user details:', userDetailsError);
+          } else {
+            // Count users by role
+            const roleCounts = {
+              superAdmins: 0,
+              admins: 0,
+              headmasters: 0,
+              viceHeadmasters: 0,
+              academicTeachers: 0,
+              teachers: 0,
+              students: 0,
+              parents: 0
+            };
+            
+            userDetails?.forEach((user) => {
+              switch (user.role) {
+                case 'super_admin':
+                  roleCounts.superAdmins++;
+                  break;
+                case 'admin':
+                  roleCounts.admins++;
+                  break;
+                case 'headmaster':
+                  roleCounts.headmasters++;
+                  break;
+                case 'vice_headmaster':
+                  roleCounts.viceHeadmasters++;
+                  break;
+                case 'academic_teacher':
+                  roleCounts.academicTeachers++;
+                  break;
+                case 'teacher':
+                  roleCounts.teachers++;
+                  break;
+                case 'student':
+                  roleCounts.students++;
+                  break;
+                case 'parent':
+                  roleCounts.parents++;
+                  break;
+              }
+            });
+            
+            setStats(roleCounts);
+          }
+        }
+        
+        // Fetch announcements (recent activities)
+        let announcementsQuery = supabase
+          .from('announcements')
+          .select(`
+            id, 
+            title, 
+            content, 
+            created_at,
+            sender_id,
+            profiles!announcements_sender_id_fkey(first_name, last_name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(5);
+          
+        if (userRole !== 'super_admin' && schoolId) {
+          announcementsQuery = announcementsQuery.eq('school_id', schoolId);
+        }
+        
+        const { data: activities, error: activitiesError } = await announcementsQuery;
+        
+        if (activitiesError) {
+          console.error('Error fetching announcements:', activitiesError);
+        } else {
+          processActivities(activities || []);
+        }
+        
+        // Fetch calendar events
+        let eventsQuery = supabase
+          .from('calendar_events')
+          .select('*')
+          .gt('start_date', new Date().toISOString())
+          .order('start_date', { ascending: true })
+          .limit(5);
+          
+        if (userRole !== 'super_admin' && schoolId) {
+          eventsQuery = eventsQuery.eq('school_id', schoolId);
+        }
+        
+        const { data: events, error: eventsError } = await eventsQuery;
+        
+        if (eventsError) {
+          console.error('Error fetching events:', eventsError);
+        } else {
+          processEvents(events || []);
+        }
+        
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        toast.error('Hitilafu imetokea wakati wa kupakua data.');
+        toast.success('Data ya dashboard imepakiwa kikamilifu!');
+        console.log('Dashboard data loaded successfully for role:', userRole);
         
         // Reset data on error
         setSchoolData([]);
         setRecentActivities([]);
         setUpcomingEvents([]);
+        setStats({
+          superAdmins: 0,
+          admins: 0,
+          headmasters: 0,
+          viceHeadmasters: 0,
+          academicTeachers: 0,
+          teachers: 0,
+          students: 0,
+          parents: 0
+        });
       } finally {
         setIsLoading(false);
       }

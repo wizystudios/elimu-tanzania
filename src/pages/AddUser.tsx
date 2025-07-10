@@ -146,55 +146,38 @@ const AddUser = () => {
       }
       const userId = `${idPrefix}/${currentYear}/${Math.floor(1000 + Math.random() * 9000)}`;
 
-      // Store current session
-      const { data: currentSession } = await supabase.auth.getSession();
-
-      // Create user account
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      // Use a safe approach to create users without affecting current session
+      // Create auth user with signup, handling session properly
+      console.log('Creating auth user...');
+      
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          national_id: formData.nationalId,
-          date_of_birth: formData.dateOfBirth,
-          gender: formData.gender,
-          user_id: userId,
-          role: formData.role
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone: formData.phone,
+            national_id: formData.nationalId,
+            date_of_birth: formData.dateOfBirth,
+            gender: formData.gender,
+            user_id: userId,
+            role: formData.role
+          }
         }
       });
 
       if (authError) {
-        console.log('Admin API failed, using regular signup:', authError);
-        
-        const { data: fallbackData, error: fallbackError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              phone: formData.phone,
-              national_id: formData.nationalId,
-              date_of_birth: formData.dateOfBirth,
-              gender: formData.gender,
-              user_id: userId,
-              role: formData.role
-            }
-          }
-        });
-
-        if (fallbackError) throw fallbackError;
-        
-        // Restore original session immediately
-        if (currentSession?.session) {
-          await supabase.auth.setSession(currentSession.session);
-        }
-        
-        authData.user = fallbackData.user;
+        console.error('Auth creation error:', authError);
+        throw authError;
       }
+
+      if (!authData.user) {
+        throw new Error('No user data returned from signup');
+      }
+
+      console.log('Auth user created successfully:', authData.user.id);
 
       if (authData.user) {
         console.log('User created successfully, creating role...');
