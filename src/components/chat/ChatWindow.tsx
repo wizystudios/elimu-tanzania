@@ -63,25 +63,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ receiverId, receiverName, recei
           content,
           sender_id,
           receiver_id,
-          created_at,
-          sender_profile:profiles!messages_sender_id_fkey (
-            first_name,
-            last_name,
-            profile_image
-          )
+          created_at
         `)
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       
-      // Transform the data to match our Message interface
-      const transformedMessages = data?.map(msg => ({
-        ...msg,
-        sender_profile: Array.isArray(msg.sender_profile) ? msg.sender_profile[0] : msg.sender_profile
-      })) || [];
+      // Fetch sender profiles separately for better reliability
+      const senderIds = [...new Set(data?.map(msg => msg.sender_id) || [])];
       
-      setMessages(transformedMessages);
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, profile_image')
+        .in('id', senderIds);
+        
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+      }
+      
+      // Map messages with their sender profiles
+      const messagesWithProfiles = data?.map(msg => {
+        const senderProfile = profiles?.find(p => p.id === msg.sender_id);
+        return {
+          ...msg,
+          sender_profile: senderProfile
+        };
+      }) || [];
+      
+      setMessages(messagesWithProfiles);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -117,12 +127,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ receiverId, receiverName, recei
 
     setIsLoading(true);
     try {
+      // Get the user's school_id
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('school_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+        
+      if (roleError || !userRole) {
+        throw new Error('Unable to determine your school association');
+      }
+      
       const { error } = await supabase
         .from('messages')
         .insert({
           content: newMessage.trim(),
           sender_id: user.id,
-          receiver_id: receiverId
+          receiver_id: receiverId,
+          school_id: userRole.school_id
         });
 
       if (error) throw error;

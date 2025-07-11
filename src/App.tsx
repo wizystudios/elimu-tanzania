@@ -44,6 +44,7 @@ import RealTimeChat from "./pages/RealTimeChat";
 import Profile from "./pages/Profile";
 import MyChildren from "./pages/MyChildren";
 import AcademicProgress from "./pages/AcademicProgress";
+import MyClasses from "./pages/MyClasses";
 
 const queryClient = new QueryClient();
 
@@ -142,7 +143,7 @@ const AppWithProviders = () => (
         } />
         <Route path="/my-classes" element={
           <ProtectedRoute allowedRoles={['teacher', 'headmaster', 'vice_headmaster', 'academic_teacher']}>
-            <div className="p-6"><h1 className="text-2xl font-bold mb-4">My Classes</h1><p>This feature is coming soon.</p></div>
+            <MyClasses />
           </ProtectedRoute>
         } />
         <Route path="/assignments" element={
