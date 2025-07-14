@@ -977,12 +977,22 @@ export type Database = {
         Args: { check_user_id: string; check_school_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      get_user_schools: {
+        Args: { check_user_id: string }
+        Returns: {
+          school_id: string
+        }[]
+      }
       is_admin_or_higher: {
         Args: { user_uuid: string }
         Returns: boolean
       }
       is_super_admin: {
         Args: { user_uuid: string }
+        Returns: boolean
+      }
+      user_is_admin_in_school: {
+        Args: { check_user_id: string; check_school_id: string }
         Returns: boolean
       }
     }
