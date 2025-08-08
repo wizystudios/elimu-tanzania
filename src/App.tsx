@@ -45,6 +45,7 @@ import Profile from "./pages/Profile";
 import MyChildren from "./pages/MyChildren";
 import AcademicProgress from "./pages/AcademicProgress";
 import MyClasses from "./pages/MyClasses";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const AppWithProviders = () => (
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
         
         <Route path="/dashboard" element={

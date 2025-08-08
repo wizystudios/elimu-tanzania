@@ -146,6 +146,28 @@ const Login = () => {
     }
   };
   
+  const handleForgotPassword = async () => {
+    const email = form.getValues("email");
+    if (!email) {
+      toast.error("Tafadhali ingiza barua pepe kwanza.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) {
+        toast.error("Imeshindikana kutuma barua ya kurekebisha nenosiri: " + error.message);
+        return;
+      }
+      toast.success("Kiungo cha kubadilisha nenosiri kimetumwa kwenye barua pepe yako.");
+    } catch (e) {
+      console.error("Reset password request error:", e);
+      toast.error("Hitilafu imetokea wakati wa kutuma ombi.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const getRoleLabel = (role: string) => {
     switch (role) {
       case 'admin': return 'Msimamizi';
@@ -261,6 +283,17 @@ const Login = () => {
                   >
                     {isLoading ? "Inaingia..." : "Ingia"}
                   </Button>
+
+                  <div className="text-center text-sm mb-2">
+                    <button
+                      type="button"
+                      className="text-tanzanian-blue dark:text-blue-400 hover:underline"
+                      onClick={handleForgotPassword}
+                      disabled={isLoading}
+                    >
+                      Umesahau nenosiri?
+                    </button>
+                  </div>
 
                   <div className="text-center">
                     <Button
